@@ -255,6 +255,7 @@ def valid(args, train_env, val_envs, rank=-1):
         iters = args.m0_eval_iters
         start_time = time.time()
         trace_path = None
+        signal_path = None
         if args.runtime_trace_file is not None:
             if '{split}' in args.runtime_trace_file:
                 trace_path = args.runtime_trace_file.format(split=env_name)
@@ -267,13 +268,32 @@ def valid(args, train_env, val_envs, rank=-1):
             if (args.offline_metrics_file is not None and
                     os.path.abspath(trace_path) == os.path.abspath(args.offline_metrics_file)):
                 raise ValueError('runtime trace and offline metrics must be separate files')
-            agent.set_runtime_trace(trace_path)
+        if args.proofnav_signal_file is not None:
+            if '{split}' in args.proofnav_signal_file:
+                signal_path = args.proofnav_signal_file.format(split=env_name)
+            elif len(val_envs) == 1:
+                signal_path = args.proofnav_signal_file
+            else:
+                stem, ext = os.path.splitext(args.proofnav_signal_file)
+                signal_path = '%s_%s%s' % (stem, env_name, ext)
+            os.makedirs(os.path.dirname(os.path.abspath(signal_path)), exist_ok=True)
+            if trace_path is not None and os.path.abspath(signal_path) == os.path.abspath(trace_path):
+                raise ValueError('ProofNav signal and M0 runtime trace require separate files')
+            if (args.offline_metrics_file is not None and
+                    os.path.abspath(signal_path) == os.path.abspath(args.offline_metrics_file)):
+                raise ValueError('ProofNav signal and offline metrics require separate files')
         try:
+            if trace_path is not None:
+                agent.set_runtime_trace(trace_path)
+            if signal_path is not None:
+                agent.set_proofnav_signal(signal_path)
             agent.test(
                 use_dropout=False, feedback='argmax', iters=iters)
         finally:
             if trace_path is not None:
                 agent.set_runtime_trace(None)
+            if signal_path is not None:
+                agent.set_proofnav_signal(None)
         print(env_name, 'cost time: %.2fs' % (time.time() - start_time))
         preds = agent.get_results(detailed_output=args.detailed_output)
         preds = merge_dist_results(all_gather(preds))

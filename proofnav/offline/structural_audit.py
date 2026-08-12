@@ -9,6 +9,10 @@ function in this module and no result is suitable as runtime feedback.
 import copy
 import math
 
+from proofnav.calibration.registry import (
+    is_registered_calibration_artifact_digest,
+    is_registered_signal_digest,
+)
 from proofnav.contracts import ContractViolation, SCHEMA_VERSIONS, canonical_json, canonical_sha256
 from proofnav.validation import validate_evidence, validate_observation, validate_scope
 
@@ -33,6 +37,39 @@ _CONTROLLED_IDENTITY_WITNESS_PRODUCER = (
 _CONTROLLED_IDENTITY_WITNESS_SOURCE_SCHEMA = (
     "proofnav.controlled-identity-witness.v1"
 )
+_M3_PROFILE_ID = "proofnav.admission.m3-entity-support.v1"
+_M3_SIGNAL_FIELDS = {
+    "schema_version", "producer", "source_schema", "signal_semantics",
+    "evidence_authority", "observation", "observation_digest",
+    "object_scores", "content_digests", "instruction_digest",
+    "template_digest", "model_identity", "signal_digest",
+}
+_M3_MODEL_FIELDS = {
+    "model_digest", "checkpoint_digest", "feature_digest",
+    "interface_digest", "config_digest", "tokenizer_digest",
+}
+_M3_ARTIFACT_FIELDS = {
+    "schema_version", "evidence_family", "predicate_kind", "polarity",
+    "score_semantics", "model_identity", "label_definition_digest",
+    "split_fingerprint", "split_names", "calibration_method",
+    "calibration_parameters", "validity_domain", "sample_unit",
+    "dependency_unit", "risk_event", "risk_bound", "aggregate_counts",
+    "generation", "artifact_digest",
+}
+_M3_DECISION_FIELDS = {
+    "schema_version", "decision_id", "decision", "reason_code",
+    "evidence_family", "predicate_kind", "polarity", "query_id",
+    "hypothesis_id", "obligation_id", "predicate_id", "binding",
+    "source_observation_digest", "signal_digest", "artifact_digest",
+    "domain_id", "selected_statistic", "dependency_group",
+    "adapter_version", "adapter_producer", "risk_atom_id",
+    "decision_digest",
+}
+_M3_ATOM_FIELDS = {
+    "schema_version", "atom_id", "event_type", "polarity", "upper_bound",
+    "familywise", "family_key", "evidence_id", "artifact_digest",
+    "signal_digest", "dependency_group", "atom_digest",
+}
 
 
 def _fail(code, location, message):
@@ -58,6 +95,25 @@ def _string(value, location):
 def _nullable_string(value, location):
     if value is not None:
         _string(value, location)
+    return value
+
+
+def _sha256(value, location):
+    if (not isinstance(value, str) or len(value) != 64
+            or any(char not in "0123456789abcdef" for char in value)):
+        _fail("OFFLINE_M3_SHA256", location, "lowercase SHA-256 required")
+    return value
+
+
+def _finite(value, location, minimum=None, maximum=None):
+    if (isinstance(value, bool) or not isinstance(value, (int, float))
+            or not math.isfinite(float(value))):
+        _fail("OFFLINE_M3_NUMBER", location, "finite number required")
+    value = float(value)
+    if minimum is not None and value < minimum:
+        _fail("OFFLINE_M3_RANGE", location, "value below minimum")
+    if maximum is not None and value > maximum:
+        _fail("OFFLINE_M3_RANGE", location, "value above maximum")
     return value
 
 
@@ -222,7 +278,15 @@ def _validate_profile(profile, scope):
         "evidence_mode": "production_zero",
         "identity_link_mode": "production_zero",
     }
-    if profile not in (controlled, production):
+    m3 = {
+        "profile_id": "proofnav.admission.m3-entity-support.v1",
+        "observation_producer": "proofnav.adapters.sanitize_duet_observation",
+        "observation_source_schema": "duet.reverie._get_obs@frozen-m0",
+        "interface_audit_ref": _PRODUCTION_INTERFACE_AUDIT_REF,
+        "evidence_mode": "m3_entity_support",
+        "identity_link_mode": "production_zero",
+    }
+    if profile not in (controlled, production, m3):
         _fail("OFFLINE_PROFILE_NOT_CODE_OWNED", "$.admission_profile", "unknown profile")
     return profile
 
@@ -714,15 +778,285 @@ def _derive_universe(scope, template, observations, links):
     }
 
 
+def _offline_m3_signal(signal, observation, template):
+    """Independently validate the self-contained, tensor-digest signal."""
+
+    signal = _exact(signal, _M3_SIGNAL_FIELDS, "$.bound_evidence.signal")
+    expected_constants = {
+        "schema_version": SCHEMA_VERSIONS["duet_model_signal"],
+        "producer": "proofnav.perception.duet_signal.build_duet_signal",
+        "source_schema": "duet.reverie.forward_navigation_per_step@frozen-m0",
+        "signal_semantics": "uncalibrated_duet_object_proposal_score",
+        "evidence_authority": False,
+    }
+    for key, expected in expected_constants.items():
+        if signal[key] != expected:
+            _fail("OFFLINE_M3_SIGNAL_SEMANTICS", "$.bound_evidence.signal." + key, "constant mismatch")
+    source = validate_observation(signal["observation"])
+    if source != observation:
+        _fail("OFFLINE_M3_SIGNAL_OBSERVATION", "$.bound_evidence.signal.observation", "admitted observation mismatch")
+    if (signal["observation_digest"] != canonical_sha256(source)
+            or signal["instruction_digest"] != canonical_sha256(source["instruction"])
+            or signal["template_digest"] != canonical_sha256(template)):
+        _fail("OFFLINE_M3_SIGNAL_IDENTITY", "$.bound_evidence.signal", "observation/instruction/template changed")
+    _sha256(signal["observation_digest"], "$.bound_evidence.signal.observation_digest")
+    _sha256(signal["instruction_digest"], "$.bound_evidence.signal.instruction_digest")
+    _sha256(signal["template_digest"], "$.bound_evidence.signal.template_digest")
+    identity = _exact(signal["model_identity"], _M3_MODEL_FIELDS, "$.bound_evidence.signal.model_identity")
+    for key in sorted(identity):
+        _sha256(identity[key], "$.bound_evidence.signal.model_identity." + key)
+
+    scores = _exact(signal["object_scores"], {
+        "proposal_ids", "valid_mask", "logits", "selected_index",
+        "selected_proposal_id", "selected_statistic",
+    }, "$.bound_evidence.signal.object_scores")
+    proposals, mask, logits = (
+        scores["proposal_ids"], scores["valid_mask"], scores["logits"],
+    )
+    if (not isinstance(proposals, list) or proposals != source["object_proposal_ids"]
+            or len(proposals) != len(set(proposals))
+            or not isinstance(mask, list) or not isinstance(logits, list)
+            or len(mask) != len(proposals) or len(logits) != len(proposals)
+            or any(not isinstance(item, bool) for item in mask)):
+        _fail("OFFLINE_M3_SIGNAL_SCORES", "$.bound_evidence.signal.object_scores", "unaligned scores")
+    logits = [
+        _finite(value, "$.bound_evidence.signal.object_scores.logits[%d]" % index)
+        for index, value in enumerate(logits)
+    ]
+    valid = [index for index, item in enumerate(mask) if item]
+    if not valid:
+        if any(scores[key] is not None for key in (
+                "selected_index", "selected_proposal_id", "selected_statistic")):
+            _fail("OFFLINE_M3_SIGNAL_SELECTION", "$.bound_evidence.signal.object_scores", "empty selection must be null")
+    else:
+        selected = max(valid, key=lambda index: (logits[index], -index))
+        if (scores["selected_index"] != selected
+                or scores["selected_proposal_id"] != proposals[selected]
+                or _finite(scores["selected_statistic"], "$.bound_evidence.signal.object_scores.selected_statistic") != logits[selected]):
+            _fail("OFFLINE_M3_SIGNAL_SELECTION", "$.bound_evidence.signal.object_scores", "not the canonical maximum")
+
+    contents = _exact(signal["content_digests"], {
+        "panorama_features", "object_features", "object_angle_features",
+        "object_box_features", "instruction_encoding",
+    }, "$.bound_evidence.signal.content_digests")
+    packed_view_rows = (
+        len(source["candidates"]) + 36
+        - len({item["point_id"] for item in source["candidates"]})
+    )
+    expected_shapes = {
+        "panorama_features": [
+            packed_view_rows,
+            source["field_schema"]["feature"]["shape"][1],
+        ],
+        "object_features": source["field_schema"]["obj_img_fts"]["shape"],
+        "object_angle_features": source["field_schema"]["obj_ang_fts"]["shape"],
+        "object_box_features": source["field_schema"]["obj_box_fts"]["shape"],
+        "instruction_encoding": [source["instruction_encoding_length"]],
+    }
+    for name, item in contents.items():
+        item = _exact(item, {"digest", "dtype", "shape"}, "$.bound_evidence.signal.content_digests." + name)
+        _sha256(item["digest"], "$.bound_evidence.signal.content_digests.%s.digest" % name)
+        expected_dtype = "int64" if name == "instruction_encoding" else "float32"
+        if item["dtype"] != expected_dtype or item["shape"] != expected_shapes[name]:
+            _fail("OFFLINE_M3_SIGNAL_CONTENT", "$.bound_evidence.signal.content_digests." + name, "shape/dtype mismatch")
+    sealed = copy.deepcopy(signal)
+    digest = sealed.pop("signal_digest")
+    if digest != canonical_sha256(sealed):
+        _fail("OFFLINE_M3_SIGNAL_DIGEST", "$.bound_evidence.signal.signal_digest", "signal changed")
+    return signal
+
+
+def _offline_m3_artifact(artifact, signal):
+    artifact = _exact(artifact, _M3_ARTIFACT_FIELDS, "$.bound_evidence.calibration_artifact")
+    constants = {
+        "schema_version": SCHEMA_VERSIONS["calibration_artifact"],
+        "evidence_family": "duet_annotated_slot_entity_grounding",
+        "predicate_kind": "entity", "polarity": "SUPPORTS",
+        "score_semantics": "selected_absolute_object_logit",
+        "calibration_method": "fixed_threshold_descriptive_micro",
+        "sample_unit": "scan_familywise",
+        "dependency_unit": "source_observation_lineage",
+        "risk_event": "false_support",
+    }
+    for key, expected in constants.items():
+        if artifact[key] != expected:
+            _fail("OFFLINE_M3_ARTIFACT_SEMANTICS", "$.bound_evidence.calibration_artifact." + key, "constant mismatch")
+    if artifact["model_identity"] != signal["model_identity"]:
+        _fail("OFFLINE_M3_ARTIFACT_MODEL", "$.bound_evidence.calibration_artifact.model_identity", "signal mismatch")
+    _exact(artifact["model_identity"], _M3_MODEL_FIELDS, "$.bound_evidence.calibration_artifact.model_identity")
+    for key in _M3_MODEL_FIELDS:
+        _sha256(artifact["model_identity"][key], "$.bound_evidence.calibration_artifact.model_identity." + key)
+    for key in ("label_definition_digest", "split_fingerprint"):
+        _sha256(artifact[key], "$.bound_evidence.calibration_artifact." + key)
+    splits = artifact["split_names"]
+    if (not isinstance(splits, list) or not splits or splits != sorted(set(splits))
+            or any(not isinstance(item, str) or not item for item in splits)):
+        _fail("OFFLINE_M3_ARTIFACT_SPLITS", "$.bound_evidence.calibration_artifact.split_names", "invalid splits")
+    for name in splits:
+        normalized = name.lower().replace("-", "_")
+        if normalized == "test" or normalized.startswith("test_") or "val_unseen" in normalized:
+            _fail("OFFLINE_M3_CALIBRATION_LEAKAGE", "$.bound_evidence.calibration_artifact.split_names", "forbidden split")
+    params = _exact(artifact["calibration_parameters"], {"support_threshold"}, "$.bound_evidence.calibration_artifact.calibration_parameters")
+    _finite(params["support_threshold"], "$.bound_evidence.calibration_artifact.calibration_parameters.support_threshold")
+    domain = _exact(artifact["validity_domain"], {
+        "domain_id", "calibration_scan_ids", "applicability_scan_ids",
+        "shift_policy",
+    }, "$.bound_evidence.calibration_artifact.validity_domain")
+    if (domain["domain_id"] != "descriptive_seen_scan_micro"
+            or domain["shift_policy"] != "exact_match_or_abstain"):
+        _fail("OFFLINE_M3_ARTIFACT_DOMAIN", "$.bound_evidence.calibration_artifact.validity_domain", "unregistered domain")
+    scan_sets = []
+    for field in ("calibration_scan_ids", "applicability_scan_ids"):
+        values = domain[field]
+        if (not isinstance(values, list) or not values
+                or values != sorted(set(values))
+                or any(not isinstance(item, str) or not item for item in values)):
+            _fail("OFFLINE_M3_ARTIFACT_DOMAIN", "$.bound_evidence.calibration_artifact.validity_domain." + field, "invalid scan set")
+        scan_sets.append(set(values))
+    if scan_sets[0] & scan_sets[1]:
+        _fail("OFFLINE_M3_CALIBRATION_APPLICATION_OVERLAP", "$.bound_evidence.calibration_artifact.validity_domain", "scan overlap")
+    if signal["observation"]["scan"] not in scan_sets[1]:
+        _fail("OFFLINE_M3_ARTIFACT_SHIFT", "$.bound_evidence.signal.observation.scan", "out of domain")
+    bound = _exact(artifact["risk_bound"], {"upper_bound", "confidence", "semantics"}, "$.bound_evidence.calibration_artifact.risk_bound")
+    _finite(bound["upper_bound"], "$.bound_evidence.calibration_artifact.risk_bound.upper_bound", 0, 1)
+    if (bound["confidence"] is not None
+            or bound["semantics"] != "descriptive_compatibility_not_statistical_guarantee"):
+        _fail("OFFLINE_M3_ARTIFACT_BOUND", "$.bound_evidence.calibration_artifact.risk_bound", "wrong semantics")
+    counts = _exact(artifact["aggregate_counts"], {"scans", "examples", "errors"}, "$.bound_evidence.calibration_artifact.aggregate_counts")
+    if (any(isinstance(counts[key], bool) or not isinstance(counts[key], int) or counts[key] < 0 for key in counts)
+            or counts["scans"] == 0 or counts["examples"] == 0
+            or counts["errors"] > counts["scans"]):
+        _fail("OFFLINE_M3_ARTIFACT_COUNTS", "$.bound_evidence.calibration_artifact.aggregate_counts", "invalid aggregate")
+    generation = _exact(artifact["generation"], {"command", "producer", "source_revision"}, "$.bound_evidence.calibration_artifact.generation")
+    if (generation["producer"] != "proofnav.calibration.artifact.build_calibration_artifact"
+            or any(not isinstance(item, str) or not item for item in generation.values())):
+        _fail("OFFLINE_M3_ARTIFACT_PRODUCER", "$.bound_evidence.calibration_artifact.generation", "wrong producer")
+    sealed = copy.deepcopy(artifact)
+    digest = sealed.pop("artifact_digest")
+    if digest != canonical_sha256(sealed):
+        _fail("OFFLINE_M3_ARTIFACT_DIGEST", "$.bound_evidence.calibration_artifact.artifact_digest", "artifact changed")
+    if not is_registered_calibration_artifact_digest(digest):
+        _fail(
+            "OFFLINE_M3_ARTIFACT_NOT_REGISTERED",
+            "$.bound_evidence.calibration_artifact.artifact_digest",
+            "artifact digest is not in the code-owned calibration registry",
+        )
+    return artifact
+
+
+def _offline_m3_extension(wrapper, query, evidence, observation, scope, template):
+    signal = _offline_m3_signal(wrapper["signal"], observation, template)
+    artifact = _offline_m3_artifact(wrapper["calibration_artifact"], signal)
+    if not is_registered_signal_digest(
+            artifact["artifact_digest"], signal["signal_digest"]):
+        _fail(
+            "OFFLINE_M3_SIGNAL_NOT_REGISTERED",
+            "$.bound_evidence.signal.signal_digest",
+            "signal is outside the sealed recorded micro replay",
+        )
+    expected_calibration = (
+        "proofnav.calibration-artifact.v1:" + artifact["artifact_digest"]
+    )
+    if scope["calibration_version"] != expected_calibration:
+        _fail(
+            "OFFLINE_M3_RISK_CALIBRATION_VERSION",
+            "$.scope.calibration_version",
+            "scope does not name the exact evidence artifact digest",
+        )
+    if wrapper["predicate_kind"] != "entity" or evidence["claim"] != "SUPPORTS":
+        _fail("OFFLINE_M3_POLARITY", "$.bound_evidence", "only entity SUPPORT is admitted")
+    scores = signal["object_scores"]
+    if scores["selected_index"] is None:
+        _fail("OFFLINE_M3_ABSTAIN", "$.bound_evidence.signal", "empty signal cannot enter ledger")
+    if scores["selected_statistic"] < artifact["calibration_parameters"]["support_threshold"]:
+        _fail("OFFLINE_M3_ABSTAIN", "$.bound_evidence.signal", "below-threshold signal cannot enter ledger")
+    if len(wrapper["binding"]["subject_unit_ids"]) != 1:
+        _fail("OFFLINE_M3_BINDING", "$.bound_evidence.binding", "single subject slot required")
+    expected_unit = _object_unit_id(observation["viewpoint"], scores["selected_proposal_id"])
+    if wrapper["binding"]["subject_unit_ids"] != [expected_unit] or evidence["unit_id"] != expected_unit:
+        _fail("OFFLINE_M3_BINDING", "$.bound_evidence.binding", "selected slot mismatch")
+    dependency = "duet-observation:%s" % observation["event_id"]
+    adapter_version = "proofnav.duet-entity-support-adapter.v1"
+    adapter_producer = "proofnav.perception.evidence_adapter.adapt_entity_signal"
+    atom_id = "atom-" + canonical_sha256({
+        "signal_digest": signal["signal_digest"],
+        "artifact_digest": artifact["artifact_digest"],
+        "query_id": query["query_id"], "polarity": "SUPPORTS",
+    })[:24]
+    decision = _exact(wrapper["adapter_decision"], _M3_DECISION_FIELDS, "$.bound_evidence.adapter_decision")
+    expected_decision = {
+        "schema_version": SCHEMA_VERSIONS["adapter_decision"],
+        "decision": "SUPPORTS", "reason_code": "CALIBRATED_SUPPORT",
+        "evidence_family": "duet_annotated_slot_entity_grounding",
+        "predicate_kind": "entity", "polarity": "SUPPORTS",
+        "query_id": query["query_id"], "hypothesis_id": query["hypothesis_id"],
+        "obligation_id": query["obligation_id"], "predicate_id": query["predicate_id"],
+        "binding": query["binding"], "source_observation_digest": signal["observation_digest"],
+        "signal_digest": signal["signal_digest"], "artifact_digest": artifact["artifact_digest"],
+        "domain_id": artifact["validity_domain"]["domain_id"],
+        "selected_statistic": scores["selected_statistic"],
+        "dependency_group": dependency, "adapter_version": adapter_version,
+        "adapter_producer": adapter_producer, "risk_atom_id": atom_id,
+    }
+    for key, expected in expected_decision.items():
+        if decision[key] != expected:
+            _fail("OFFLINE_M3_DECISION", "$.bound_evidence.adapter_decision." + key, "decision mismatch")
+    identity = copy.deepcopy(decision)
+    decision_id = identity.pop("decision_id")
+    decision_digest = identity.pop("decision_digest")
+    expected_id = "decision-" + canonical_sha256(identity)[:24]
+    if decision_id != expected_id:
+        _fail("OFFLINE_M3_DECISION_ID", "$.bound_evidence.adapter_decision.decision_id", "noncanonical ID")
+    sealed = copy.deepcopy(decision)
+    sealed.pop("decision_digest")
+    if decision_digest != canonical_sha256(sealed):
+        _fail("OFFLINE_M3_DECISION_DIGEST", "$.bound_evidence.adapter_decision.decision_digest", "decision changed")
+    expected_evidence_id = "evidence-" + canonical_sha256({
+        "decision_digest": decision_digest,
+        "scope_contract_id": scope["scope_contract_id"],
+    })[:24]
+    if (evidence["evidence_id"] != expected_evidence_id
+            or evidence["adapter_version"] != adapter_version
+            or evidence["dependency_group"] != dependency
+            or evidence["audit_trail"] != {
+                "producer": adapter_producer,
+                "source_field": "object_scores.selected_statistic",
+            }):
+        _fail("OFFLINE_M3_EVIDENCE_PROVENANCE", "$.bound_evidence.evidence", "adapter output mismatch")
+    atom = _exact(wrapper["risk_atom"], _M3_ATOM_FIELDS, "$.bound_evidence.risk_atom")
+    expected_atom = {
+        "schema_version": SCHEMA_VERSIONS["risk_atom"], "atom_id": atom_id,
+        "event_type": "false_support", "polarity": "SUPPORTS",
+        "upper_bound": artifact["risk_bound"]["upper_bound"], "familywise": True,
+        "family_key": "artifact:%s:source-observation:%s" % (
+            artifact["artifact_digest"], observation["event_id"],
+        ),
+        "evidence_id": expected_evidence_id, "artifact_digest": artifact["artifact_digest"],
+        "signal_digest": signal["signal_digest"], "dependency_group": dependency,
+    }
+    expected_atom["atom_digest"] = canonical_sha256(expected_atom)
+    if atom != expected_atom:
+        _fail("OFFLINE_M3_RISK_ATOM", "$.bound_evidence.risk_atom", "atom mismatch")
+    return wrapper
+
+
 def _validate_bound_evidence(
-        wrapper, observations, queries, universe, profile, scope):
-    wrapper = _exact(wrapper, {
+        wrapper, observations, queries, universe, profile, scope, template):
+    m3_mode = profile["profile_id"] == _M3_PROFILE_ID
+    base_fields = {
         "schema_version", "query_id", "hypothesis_id", "obligation_id",
         "predicate_id", "predicate_kind", "binding", "source_observation_digest",
         "evidence",
-    }, "$.bound_evidence")
-    if wrapper["schema_version"] != SCHEMA_VERSIONS["bound_evidence"]:
-        _fail("SCHEMA_VERSION", "$.bound_evidence.schema_version", "bound-evidence v2 required")
+    }
+    fields = base_fields | ({
+        "signal", "calibration_artifact", "adapter_decision", "risk_atom",
+    } if m3_mode else set())
+    wrapper = _exact(wrapper, fields, "$.bound_evidence")
+    expected_schema = SCHEMA_VERSIONS[
+        "m3_bound_evidence" if m3_mode else "bound_evidence"
+    ]
+    if wrapper["schema_version"] != expected_schema:
+        _fail("SCHEMA_VERSION", "$.bound_evidence.schema_version", "wrong bound-evidence version")
     query = queries.get(wrapper["query_id"])
     if query is None:
         _fail("OFFLINE_EVIDENCE_QUERY", "$.bound_evidence.query_id", "query must precede evidence")
@@ -758,6 +1092,11 @@ def _validate_bound_evidence(
         _fail("OFFLINE_EVIDENCE_OBSERVATION", "$.bound_evidence.source_observation_digest", "source changed")
     if profile["evidence_mode"] == "production_zero":
         _fail("OFFLINE_EVIDENCE_FIREWALL", "$.bound_evidence", "production admission is sealed")
+    if m3_mode:
+        _offline_m3_extension(
+            wrapper, query, evidence, observation, scope, template,
+        )
+        return wrapper
     if (evidence["adapter_version"] != "proofnav.controlled-oracle.replay.v2"
             or evidence["audit_trail"]["producer"] != "proofnav.offline.OracleEvidenceProvider.v2"):
         _fail("OFFLINE_EVIDENCE_PROVENANCE", "$.bound_evidence.evidence", "wrong controlled source")
@@ -811,7 +1150,15 @@ def recompute_offline_state(base_bundle, _validate_continues=True):
     validate_scope(scope)
     template = _validate_template(base_bundle["template"])
     profile = _validate_profile(base_bundle["admission_profile"], scope)
-    risks = _validate_risk_claims(base_bundle["risk_claims"], scope)
+    if profile["evidence_mode"] == "m3_entity_support":
+        if base_bundle["risk_claims"] != {}:
+            _fail(
+                "OFFLINE_M3_CALLER_RISK", "$.risk_claims",
+                "M3 risk must be composed from selected evidence",
+            )
+        risks = {}
+    else:
+        risks = _validate_risk_claims(base_bundle["risk_claims"], scope)
     transitions = base_bundle["transitions"]
     tip = _validate_transition_chain(transitions)
     observations = []
@@ -868,6 +1215,7 @@ def recompute_offline_state(base_bundle, _validate_continues=True):
             universe = _derive_universe(scope, template, observations, links)
             wrapper = _validate_bound_evidence(
                 payload, observations, queries, universe, profile, scope,
+                template,
             )
             evidence_id = wrapper["evidence"]["evidence_id"]
             if evidence_id in evidence_by_id:
@@ -1274,11 +1622,17 @@ def audit_certificate(audit_bundle, certificate, state=None):
             reasons.append("OFFLINE_CERTIFICATE_COST")
         if not state["budget_status"]["within_budget"]:
             reasons.append("OFFLINE_CERTIFICATE_BUDGET_EXHAUSTED")
-        expected_risk = state["risk_claims"].get(requested)
-        if certificate.get("risk_claim") != expected_risk:
-            reasons.append("OFFLINE_CERTIFICATE_RISK")
-        elif expected_risk is not None and expected_risk["upper_bound"] > expected_risk["budget"]:
-            reasons.append("OFFLINE_CERTIFICATE_RISK_EXCEEDED")
+        m3_profile = (
+            state.get("audit_trail", {}).get("admission_profile_id")
+            == _M3_PROFILE_ID
+        )
+        if not m3_profile:
+            expected_risk = state["risk_claims"].get(requested)
+            if certificate.get("risk_claim") != expected_risk:
+                reasons.append("OFFLINE_CERTIFICATE_RISK")
+            elif (expected_risk is not None
+                  and expected_risk["upper_bound"] > expected_risk["budget"]):
+                reasons.append("OFFLINE_CERTIFICATE_RISK_EXCEEDED")
 
         hypotheses, obligations, by_hypothesis, evidence = _certificate_indexes(state)
         lists = {}
@@ -1297,6 +1651,62 @@ def audit_certificate(audit_bundle, certificate, state=None):
                 reasons.append("OFFLINE_CERTIFICATE_EVIDENCE_MISSING")
             else:
                 selected.append(wrapper)
+        if m3_profile:
+            if requested != "FOUND" or not selected:
+                reasons.append("OFFLINE_M3_VERDICT_SEALED")
+            else:
+                families = {}
+                artifact_digests = set()
+                for wrapper in selected:
+                    atom = wrapper.get("risk_atom", {})
+                    family_key = atom.get("family_key")
+                    bound = atom.get("upper_bound")
+                    if (not isinstance(family_key, str) or not family_key
+                            or isinstance(bound, bool)
+                            or not isinstance(bound, (int, float))
+                            or not math.isfinite(float(bound))
+                            or not 0 <= float(bound) <= 1):
+                        reasons.append("OFFLINE_M3_RISK_ATOM")
+                        continue
+                    if family_key in families and families[family_key] != bound:
+                        reasons.append("OFFLINE_M3_RISK_FAMILY_CONFLICT")
+                    families[family_key] = float(bound)
+                    artifact_digest = wrapper.get(
+                        "calibration_artifact", {},
+                    ).get("artifact_digest")
+                    if not isinstance(artifact_digest, str):
+                        reasons.append("OFFLINE_M3_RISK_ARTIFACT")
+                    else:
+                        artifact_digests.add(artifact_digest)
+                scope = audit_bundle.get("scope", {})
+                budget = scope.get("risk_budgets", {}).get("false_found")
+                if len(artifact_digests) != 1:
+                    reasons.append("OFFLINE_M3_RISK_ARTIFACT_MIX")
+                else:
+                    expected_calibration = (
+                        "proofnav.calibration-artifact.v1:"
+                        + next(iter(artifact_digests))
+                    )
+                    if scope.get("calibration_version") != expected_calibration:
+                        reasons.append("OFFLINE_M3_RISK_CALIBRATION_VERSION")
+                if (isinstance(budget, bool) or not isinstance(budget, (int, float))
+                        or not math.isfinite(float(budget)) or not 0 <= budget <= 1):
+                    reasons.append("OFFLINE_M3_RISK_BUDGET")
+                else:
+                    expected_risk = {
+                        "decision": "FOUND", "risk_type": "false_found",
+                        "upper_bound": min(1.0, sum(families.values())),
+                        "budget": budget,
+                        "calibration_version": scope.get("calibration_version"),
+                        "composition_version": "%s:%s" % (
+                            "proofnav.strict-familywise-union.v1",
+                            canonical_sha256(sorted(families))[:16],
+                        ),
+                    }
+                    if certificate.get("risk_claim") != expected_risk:
+                        reasons.append("OFFLINE_CERTIFICATE_RISK")
+                    elif expected_risk["upper_bound"] > expected_risk["budget"]:
+                        reasons.append("OFFLINE_CERTIFICATE_RISK_EXCEEDED")
         if any(item not in hypotheses for item in lists["hypothesis_ids"]):
             reasons.append("OFFLINE_CERTIFICATE_HYPOTHESIS_UNKNOWN")
         if any(item not in obligations for item in lists["obligation_ids"]):

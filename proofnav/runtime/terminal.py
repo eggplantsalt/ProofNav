@@ -3,7 +3,9 @@
 import copy
 
 from proofnav.contracts import SCHEMA_VERSIONS
-from proofnav.runtime.verifier import OnlineVerifier, _canonical_view, _empty_view, _report
+from proofnav.runtime.verifier import (
+    M3OnlineVerifier, OnlineVerifier, _canonical_view, _empty_view, _report,
+)
 
 
 _EXECUTION_FIELDS = {
@@ -61,7 +63,9 @@ class _TerminalControllerCore(object):
 
         try:
             _, snapshot, bundle_reasons = _canonical_view(
-                state_or_bundle, self._verifier._allow_controlled,
+                state_or_bundle,
+                self._verifier._allow_controlled,
+                getattr(self._verifier, "_allow_m3", False),
             )
         except Exception:  # The verifier returns the stable, specific reason.
             snapshot = _empty_view()
@@ -194,4 +198,11 @@ class TerminalController(_TerminalControllerCore):
         super().__init__(OnlineVerifier())
 
 
-__all__ = ["TerminalController"]
+class M3TerminalController(_TerminalControllerCore):
+    """Terminal controller for the explicit M3 entity-SUPPORT profile."""
+
+    def __init__(self):
+        super().__init__(M3OnlineVerifier())
+
+
+__all__ = ["M3TerminalController", "TerminalController"]

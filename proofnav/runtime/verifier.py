@@ -136,7 +136,7 @@ def _source_bundle(source):
     )
 
 
-def _canonical_view(source, allow_controlled):
+def _canonical_view(source, allow_controlled=False, allow_m3=False):
     """Validate and fold an audit bundle; return bundle, view, soft reasons."""
 
     bundle = _source_bundle(source)
@@ -162,19 +162,34 @@ def _canonical_view(source, allow_controlled):
             "ADMISSION_PROFILE_NOT_CODE_OWNED", "$.admission_profile",
             "registered M2.1 profile required",
         )
+    if allow_controlled and allow_m3:
+        raise ContractViolation(
+            "ADMISSION_PROFILE_MODE", "$.admission_profile",
+            "one verifier cannot authorize two non-default profiles",
+        )
     if (not allow_controlled
             and profile == registered_admission_profile(True)):
         raise ContractViolation(
             "CONTROLLED_SOURCE_FORBIDDEN", "$.admission_profile",
             "controlled replay cannot enter production verification",
         )
-    expected_profile = registered_admission_profile(allow_controlled)
+    if (not allow_m3
+            and profile == registered_admission_profile(m3=True)):
+        raise ContractViolation(
+            "M3_SOURCE_FORBIDDEN", "$.admission_profile",
+            "the explicit M3 verifier is required",
+        )
+    expected_profile = registered_admission_profile(
+        controlled=allow_controlled, m3=allow_m3,
+    )
     if profile != expected_profile:
         raise ContractViolation(
             "ADMISSION_PROFILE_NOT_CODE_OWNED", "$.admission_profile",
             "profile must exactly match the verifier class",
         )
-    snapshot = recompute_view(base, allow_controlled=allow_controlled)
+    snapshot = recompute_view(
+        base, allow_controlled=allow_controlled, allow_m3=allow_m3,
+    )
     if bundle["state"] != snapshot:
         reasons.append("AUDIT_STATE_MISMATCH")
     return bundle, snapshot, reasons
@@ -197,6 +212,13 @@ def _indexes(snapshot):
         for item in snapshot["active_bound_evidence"]
     }
     return hypotheses, obligations, by_hypothesis, evidence
+
+
+def _m3_profile(snapshot):
+    return (
+        snapshot.get("audit_trail", {}).get("admission_profile_id")
+        == "proofnav.admission.m3-entity-support.v1"
+    )
 
 
 def _wrapper_matches(wrapper, hypothesis, obligation, polarity, snapshot):
@@ -238,13 +260,16 @@ def _coverage_matches(item, hypothesis, obligation):
 class _OnlineVerifierCore(object):
     """Raw-transition verifier; controlled replay is an offline-only subclass."""
 
-    def __init__(self, allow_controlled=False):
+    def __init__(self, allow_controlled=False, allow_m3=False):
         self._allow_controlled = bool(allow_controlled)
+        self._allow_m3 = bool(allow_m3)
+        if self._allow_controlled and self._allow_m3:
+            raise ValueError("controlled and M3 verifier modes are disjoint")
 
     def verify(self, state_or_bundle, certificate):
         try:
             bundle, snapshot, bundle_reasons = _canonical_view(
-                state_or_bundle, self._allow_controlled,
+                state_or_bundle, self._allow_controlled, self._allow_m3,
             )
         except ContractViolation as error:
             return _report(
@@ -352,11 +377,13 @@ class _OnlineVerifierCore(object):
             reasons.append("COST_SNAPSHOT_MISMATCH")
         if not snapshot["budget_status"]["within_budget"]:
             reasons.append("BUDGET_EXHAUSTED")
-        expected_risk = snapshot["risk_claims"].get(requested)
-        if certificate.get("risk_claim") != expected_risk:
-            reasons.append("RISK_CLAIM_MISMATCH")
-        elif expected_risk is not None and expected_risk["upper_bound"] > expected_risk["budget"]:
-            reasons.append("RISK_BUDGET_EXCEEDED")
+        if not _m3_profile(snapshot):
+            expected_risk = snapshot["risk_claims"].get(requested)
+            if certificate.get("risk_claim") != expected_risk:
+                reasons.append("RISK_CLAIM_MISMATCH")
+            elif (expected_risk is not None
+                  and expected_risk["upper_bound"] > expected_risk["budget"]):
+                reasons.append("RISK_BUDGET_EXCEEDED")
 
         hypotheses, obligations, by_hypothesis, evidence = _indexes(snapshot)
         lists = {}
@@ -377,6 +404,23 @@ class _OnlineVerifierCore(object):
                 if (raw["event_seq"] > snapshot["decision_cut"]["max_observation_event_seq"]
                         or raw["step"] > snapshot["decision_cut"]["max_step"]):
                     reasons.append("FUTURE_EVIDENCE")
+        if _m3_profile(snapshot):
+            if requested != "FOUND":
+                reasons.append("M3_NOT_FOUND_SEALED")
+            else:
+                try:
+                    from proofnav.calibration.risk import (  # pylint: disable=import-outside-toplevel
+                        compose_certificate_risk,
+                    )
+                    expected_risk = compose_certificate_risk(
+                        selected, "FOUND", bundle["scope"],
+                    )
+                    if certificate.get("risk_claim") != expected_risk:
+                        reasons.append("RISK_CLAIM_MISMATCH")
+                    elif expected_risk["upper_bound"] > expected_risk["budget"]:
+                        reasons.append("RISK_BUDGET_EXCEEDED")
+                except ContractViolation as error:
+                    reasons.append(error.code)
         for hypothesis_id in lists["hypothesis_ids"]:
             if hypothesis_id not in hypotheses:
                 reasons.append("HYPOTHESIS_UNKNOWN")
@@ -576,4 +620,11 @@ class OnlineVerifier(_OnlineVerifierCore):
         super().__init__(allow_controlled=False)
 
 
-__all__ = ["OnlineVerifier"]
+class M3OnlineVerifier(_OnlineVerifierCore):
+    """Verifier for the explicit calibrated entity-SUPPORT successor."""
+
+    def __init__(self):
+        super().__init__(allow_m3=True)
+
+
+__all__ = ["M3OnlineVerifier", "OnlineVerifier"]

@@ -93,13 +93,20 @@ def _canonical_bundle(source):
     allow_controlled = (
         base["admission_profile"] == registered_admission_profile(True)
     )
-    expected_profile = registered_admission_profile(allow_controlled)
+    allow_m3 = (
+        base["admission_profile"] == registered_admission_profile(m3=True)
+    )
+    expected_profile = registered_admission_profile(
+        controlled=allow_controlled, m3=allow_m3,
+    )
     if base["admission_profile"] != expected_profile:
         raise ContractViolation(
             "ADMISSION_PROFILE_NOT_CODE_OWNED", "$.admission_profile",
             "registered M2.1 profile required",
         )
-    snapshot = recompute_view(base, allow_controlled=allow_controlled)
+    snapshot = recompute_view(
+        base, allow_controlled=allow_controlled, allow_m3=allow_m3,
+    )
     if bundle["state"] != snapshot:
         raise ContractViolation(
             "AUDIT_STATE_MISMATCH", "$.state", "cached state differs from transition fold",
@@ -124,6 +131,13 @@ def _indexes(snapshot):
         for item in snapshot["active_bound_evidence"]
     }
     return hypotheses, obligations, by_hypothesis, evidence
+
+
+def _m3_profile(snapshot):
+    return (
+        snapshot.get("audit_trail", {}).get("admission_profile_id")
+        == "proofnav.admission.m3-entity-support.v1"
+    )
 
 
 def _coverage_item(hypothesis, obligation, evidence_ids):
@@ -166,7 +180,8 @@ def _selected_evidence_valid(ids, evidence, hypothesis, obligation, polarity):
 
 
 def _finalize(bundle, snapshot, certificate_type, requested_verdict,
-              hypothesis_ids, obligation_ids, evidence_ids, payload):
+              hypothesis_ids, obligation_ids, evidence_ids, payload,
+              risk_claim=None):
     evidence = {
         item["evidence"]["evidence_id"]: item
         for item in snapshot["active_bound_evidence"]
@@ -193,7 +208,10 @@ def _finalize(bundle, snapshot, certificate_type, requested_verdict,
         "ledger_digest": snapshot["ledger_digest"],
         "budget_snapshot": _copy(snapshot["budget_status"]),
         "cost_snapshot": _copy(snapshot["cost_ledger"]),
-        "risk_claim": _copy(snapshot["risk_claims"][requested_verdict]),
+        "risk_claim": _copy(
+            risk_claim if risk_claim is not None
+            else snapshot["risk_claims"][requested_verdict]
+        ),
         "hypothesis_ids": sorted(hypothesis_ids),
         "obligation_ids": sorted(obligation_ids),
         "evidence_ids": sorted(evidence_ids),
@@ -236,6 +254,10 @@ class CertificateBuilder(object):
         reasons = []
         if not snapshot["budget_status"]["within_budget"]:
             reasons.append("BUDGET_EXHAUSTED")
+        if _m3_profile(snapshot):
+            if verdict == "NOT_FOUND":
+                reasons.append("M3_NOT_FOUND_SEALED")
+            return reasons
         claim = snapshot["risk_claims"].get(verdict)
         if claim is None:
             reasons.append("RISK_CLAIM_MISSING")
@@ -294,11 +316,27 @@ class CertificateBuilder(object):
             "true_path": true_path,
             "unresolved_obligation_ids": [],
         }
+        derived_risk = None
+        if _m3_profile(snapshot):
+            try:
+                from proofnav.calibration.risk import (  # pylint: disable=import-outside-toplevel
+                    compose_certificate_risk,
+                )
+                selected = [evidence[key] for key in sorted(evidence_ids)]
+                derived_risk = compose_certificate_risk(
+                    selected, "FOUND", bundle["scope"],
+                )
+            except ContractViolation as error:
+                return _outcome(snapshot, reason_codes=[error.code])
+            if derived_risk["upper_bound"] > derived_risk["budget"]:
+                return _outcome(
+                    snapshot, reason_codes=["RISK_BUDGET_EXCEEDED"],
+                )
         certificate = _finalize(
             bundle, snapshot, "positive", "FOUND",
             [hypothesis["hypothesis_id"]],
             [item["obligation_id"] for item in necessary],
-            evidence_ids, payload,
+            evidence_ids, payload, risk_claim=derived_risk,
         )
         return _outcome(snapshot, certificate=certificate)
 

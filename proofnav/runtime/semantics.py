@@ -31,6 +31,7 @@ CONTROLLED_IDENTITY_WITNESS_PRODUCER = (
 CONTROLLED_IDENTITY_WITNESS_SOURCE_SCHEMA = (
     "proofnav.controlled-identity-witness.v1"
 )
+M3_ENTITY_SUPPORT_PROFILE_ID = "proofnav.admission.m3-entity-support.v1"
 
 _CONTINUE_TERMINAL_FIELDS = {
     "schema_version", "directive", "terminal", "semantic_verdict", "cause",
@@ -58,9 +59,14 @@ _CONTINUE_EXECUTION_FIELDS = {
 }
 
 
-def registered_admission_profile(controlled):
+def registered_admission_profile(controlled=False, m3=False):
     """Return a code-owned profile; callers cannot register aliases."""
 
+    if controlled and m3:
+        fail(
+            "ADMISSION_PROFILE_MODE", "$.admission_profile",
+            "controlled replay and M3 production admission are disjoint",
+        )
     if controlled:
         return {
             "profile_id": "proofnav.admission.controlled-replay.v2",
@@ -69,6 +75,15 @@ def registered_admission_profile(controlled):
             "interface_audit_ref": CONTROLLED_INTERFACE_AUDIT_REF,
             "evidence_mode": "controlled_replay",
             "identity_link_mode": "controlled_replay",
+        }
+    if m3:
+        return {
+            "profile_id": M3_ENTITY_SUPPORT_PROFILE_ID,
+            "observation_producer": "proofnav.adapters.sanitize_duet_observation",
+            "observation_source_schema": "duet.reverie._get_obs@frozen-m0",
+            "interface_audit_ref": PRODUCTION_INTERFACE_AUDIT_REF,
+            "evidence_mode": "m3_entity_support",
+            "identity_link_mode": "production_zero",
         }
     return {
         "profile_id": "proofnav.admission.production-zero.v2",
@@ -191,12 +206,14 @@ def validate_admission_profile(value):
     value = exact(value, fields, "$.admission_profile")
     for key in fields - {"evidence_mode", "identity_link_mode"}:
         nonempty_string(value[key], "$.admission_profile." + key)
-    if value["evidence_mode"] not in ("production_zero", "controlled_replay"):
+    if value["evidence_mode"] not in (
+            "production_zero", "controlled_replay", "m3_entity_support"):
         fail("ADMISSION_EVIDENCE_MODE", "$.admission_profile.evidence_mode", "invalid mode")
     if value["identity_link_mode"] not in ("production_zero", "controlled_replay"):
         fail("ADMISSION_LINK_MODE", "$.admission_profile.identity_link_mode", "invalid mode")
     registered = (
         registered_admission_profile(True), registered_admission_profile(False),
+        registered_admission_profile(m3=True),
     )
     if value not in registered:
         fail(
@@ -684,15 +701,25 @@ def derive_universe(scope, template, observations, links):
 
 
 def _validate_bound_evidence(
-        wrapper, observations, queries, universe, profile, scope):
-    fields = {
+        wrapper, observations, queries, universe, profile, scope, template):
+    base_fields = {
         "schema_version", "query_id", "hypothesis_id", "obligation_id",
         "predicate_id", "predicate_kind", "binding", "source_observation_digest",
         "evidence",
     }
+    m3_mode = profile["evidence_mode"] == "m3_entity_support"
+    fields = base_fields | ({
+        "signal", "calibration_artifact", "adapter_decision", "risk_atom",
+    } if m3_mode else set())
     wrapper = exact(wrapper, fields, "$.bound_evidence")
-    if wrapper["schema_version"] != SCHEMA_VERSIONS["bound_evidence"]:
-        fail("SCHEMA_VERSION", "$.bound_evidence.schema_version", "bound-evidence v2 required")
+    expected_schema = SCHEMA_VERSIONS[
+        "m3_bound_evidence" if m3_mode else "bound_evidence"
+    ]
+    if wrapper["schema_version"] != expected_schema:
+        fail(
+            "SCHEMA_VERSION", "$.bound_evidence.schema_version",
+            "registered bound-evidence version required",
+        )
     query = queries.get(wrapper["query_id"])
     if query is None:
         fail("EVIDENCE_QUERY_MISSING", "$.bound_evidence.query_id", "query must precede evidence")
@@ -726,6 +753,49 @@ def _validate_bound_evidence(
         fail("EVIDENCE_OBSERVATION_DIGEST", "$.bound_evidence.source_observation_digest", "source changed")
     if profile["evidence_mode"] == "production_zero":
         fail("EVIDENCE_ADAPTER_NOT_REGISTERED", "$.bound_evidence.evidence.adapter_version", "M2.1 production admission is sealed")
+    if m3_mode:
+        # This local import keeps the frozen M2 core importable without the M3
+        # adapter while still making the production fold recompute the exact
+        # code-owned decision rather than trusting wrapper fields.
+        from proofnav.perception.evidence_adapter import (  # pylint: disable=import-outside-toplevel
+            build_calibrated_bound_evidence, validate_duet_signal,
+        )
+        if wrapper["predicate_kind"] != "entity":
+            fail(
+                "M3_UNSUPPORTED_PREDICATE", "$.bound_evidence.predicate_kind",
+                "M3-A admits only entity SUPPORT evidence",
+            )
+        validate_duet_signal(
+            wrapper["signal"], observation=source_observation,
+            template=template,
+        )
+        expected_wrapper = build_calibrated_bound_evidence(
+            query, wrapper["signal"], wrapper["calibration_artifact"],
+            scope["scope_contract_id"],
+        )
+        expected_calibration = (
+            "proofnav.calibration-artifact.v1:"
+            + wrapper["calibration_artifact"].get("artifact_digest", "")
+        )
+        if scope["calibration_version"] != expected_calibration:
+            fail(
+                "M3_RISK_CALIBRATION_VERSION", "$.scope.calibration_version",
+                "scope must name the exact evidence artifact digest",
+            )
+        if (not isinstance(expected_wrapper, dict)
+                or expected_wrapper.get("schema_version")
+                != SCHEMA_VERSIONS["m3_bound_evidence"]
+                or wrapper != expected_wrapper):
+            fail(
+                "M3_EVIDENCE_RECOMPUTE_MISMATCH", "$.bound_evidence",
+                "wrapper differs from the code-owned adapter decision",
+            )
+        if evidence["claim"] != "SUPPORTS":
+            fail(
+                "M3_REFUTE_NOT_REGISTERED", "$.bound_evidence.evidence.claim",
+                "M3-A has no calibrated REFUTE adapter",
+            )
+        return wrapper
     if evidence["adapter_version"] != "proofnav.controlled-oracle.replay.v2":
         fail("CONTROLLED_ADAPTER_REQUIRED", "$.bound_evidence.evidence.adapter_version", "exact replay adapter required")
     if evidence["audit_trail"]["producer"] != "proofnav.offline.OracleEvidenceProvider.v2":
@@ -920,7 +990,9 @@ def _validate_continue_terminal(terminal, prior, rejected_digest):
     return terminal
 
 
-def recompute_view(bundle, allow_controlled, _validate_continues=True):
+def recompute_view(
+        bundle, allow_controlled=False, allow_m3=False,
+        _validate_continues=True):
     bundle = exact(bundle, {
         "schema_version", "scope", "template", "admission_profile", "risk_claims",
         "transitions",
@@ -937,9 +1009,27 @@ def recompute_view(bundle, allow_controlled, _validate_continues=True):
         fail("SCOPE_INTERFACE", "$.scope.observation_interface_version", "M1 observation v1 required")
     if scope["domain"]["interface_audit_ref"] != profile["interface_audit_ref"]:
         fail("SCOPE_INTERFACE_AUDIT", "$.scope.domain.interface_audit_ref", "unregistered audit")
+    if allow_controlled and allow_m3:
+        fail(
+            "ADMISSION_PROFILE_MODE", "$.admission_profile",
+            "one verifier may authorize only one non-default admission mode",
+        )
     if profile["evidence_mode"] == "controlled_replay" and not allow_controlled:
         fail("CONTROLLED_SOURCE_FORBIDDEN", "$.admission_profile.evidence_mode", "production verifier")
-    risk_claims = _risk_claims(bundle["risk_claims"], scope)
+    if profile["evidence_mode"] == "m3_entity_support" and not allow_m3:
+        fail(
+            "M3_SOURCE_FORBIDDEN", "$.admission_profile.evidence_mode",
+            "the explicit M3 verifier is required",
+        )
+    if profile["evidence_mode"] == "m3_entity_support":
+        if bundle["risk_claims"] != {}:
+            fail(
+                "M3_CALLER_RISK_FORBIDDEN", "$.risk_claims",
+                "M3 certificate risk is derived from selected evidence",
+            )
+        risk_claims = {}
+    else:
+        risk_claims = _risk_claims(bundle["risk_claims"], scope)
     transitions = copy.deepcopy(bundle["transitions"])
     tip = _validate_transition_chain(transitions)
     observations = []
@@ -998,6 +1088,7 @@ def recompute_view(bundle, allow_controlled, _validate_continues=True):
             universe = derive_universe(scope, template, observations, links)
             wrapper = _validate_bound_evidence(
                 payload, observations, queries, universe, profile, scope,
+                template,
             )
             evidence_id = wrapper["evidence"]["evidence_id"]
             if evidence_id in evidence_by_id:
@@ -1037,7 +1128,8 @@ def recompute_view(bundle, allow_controlled, _validate_continues=True):
                 prior_bundle = copy.deepcopy(bundle)
                 prior_bundle["transitions"] = transitions[:transition["transition_seq"]]
                 prior = recompute_view(
-                    prior_bundle, allow_controlled, _validate_continues=False,
+                    prior_bundle, allow_controlled=allow_controlled,
+                    allow_m3=allow_m3, _validate_continues=False,
                 )
                 if payload["proof_state_digest"] != prior["proof_state_digest"]:
                     fail("CONTINUE_STATE_DIGEST", "$.continue.proof_state_digest", "not prior state")

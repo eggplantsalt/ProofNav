@@ -2,13 +2,13 @@
 
 > 项目暂定名：**ProofNav: Risk-Calibrated Spatial Proof Optimization for Found-or-Not-Found Navigation**
 >
-> 校准日期：2026-08-12
+> 校准日期：2026-08-13
 >
 > 代码基线：VLN-DUET `main@93e8b233164bc079a6db48b8a0a78d123ec8de41`
 >
-> 当前状态：**M0 已实测完成，M1-A/M1-B 已完成；旧 bulk-snapshot M2 complete 声明永久撤回，M2.1 successor 已通过 semantic/adversarial gate，M2-A/M2-B 按条件化 claim 恢复完成**；项目停在 M2→M3 边界，尚未实现 M3 真实 predicate/identity perception 与 calibration、M4 DUET 闭环/re-ranker、正式 paired 数据或训练模型。
+> 当前状态：**M0 已实测完成，M1-A/M1-B 已完成；旧 bulk-snapshot M2 complete 声明永久撤回，M2.1 successor 已通过 semantic/adversarial gate；M3-A 的真实 DUET signal→entity SUPPORT/ABSTAIN→派生风险→verifier 工程闭环已完成，但 frozen-logit P1 以 `2/6` scan-familywise 描述性错误上界未通过 `alpha_F=0.05` 科学门槛，因而状态是 `Revise` 而非完整 M3 complete**。项目停在 M3-A→M3-B 边界；attribute/relation/room/coverage/identity 仍 sealed，M4/M5、正式 paired 数据和训练模型均未进入。
 
-相关文档：[新手代码库说明](CODEBASE_BEGINNER_GUIDE.md)；[代码约束下的设计审查](CODE_GROUNDED_DESIGN_REVIEW.md)；[M0 复现报告](reproduction/M0_REPRODUCTION_REPORT.md)；[M1 合同](M1_CONTRACTS.md)；[M1 代码驱动微调](M1_CODE_DRIVEN_CHANGELOG.md)；[M2 架构](M2_ARCHITECTURE.md)；[M2 schema](M2_CERTIFICATE_VERIFIER_SCHEMA.md)；[M2 边界](M2_DEPENDENCY_BOUNDARY.md)；[M2 falsification](M2_FALSIFICATION_REPORT.md)。
+相关文档：[新手代码库说明](CODEBASE_BEGINNER_GUIDE.md)；[代码约束下的设计审查](CODE_GROUNDED_DESIGN_REVIEW.md)；[M0 复现报告](reproduction/M0_REPRODUCTION_REPORT.md)；[M1 合同](M1_CONTRACTS.md)；[M1 代码驱动微调](M1_CODE_DRIVEN_CHANGELOG.md)；[M2 架构](M2_ARCHITECTURE.md)；[M2 schema](M2_CERTIFICATE_VERIFIER_SCHEMA.md)；[M2 边界](M2_DEPENDENCY_BOUNDARY.md)；[M2 falsification](M2_FALSIFICATION_REPORT.md)；[M3 precommit](M3_SCIENTIFIC_PRECOMMIT.md)；[M3 能力审计](M3_EVIDENCE_CAPABILITY_AUDIT.md)；[M3 风险语义](M3_CALIBRATION_AND_RISK_SEMANTICS.md)；[M3 falsification](M3_FALSIFICATION_REPORT.md)。
 
 ## 0. 固定范围与证据标记
 
@@ -449,13 +449,49 @@ witness 与事实正确 typed evidence 条件下，raw event log 足以重算 cl
 accounting 与 terminal legality。它不证明 perception/identity/coverage output 的世界事实、risk calibration、
 room label 或 compiler 完整性，也不包含正式 DUET 成本/指标。
 
-### M3：Perception adapter、predicate evidence 与风险校准
+### M3-A：Real signal boundary 与 entity-SUPPORT 最小切片
 
-**目的：** 建立现有 feature/logit 到实体、属性、关系、room/anchor 谓词的明确支持边界和 calibration artifact。
+**状态：工程验收完成；科学 gate = `Revise`（2026-08-13）。**
 
-**候选新文件：** `proofnav/perception/`、`proofnav/calibration/`。
+**已实现：** `proofnav/perception/`从真实 DUET `nav_outs` 接缝记录 full finite
+object logits/mask、ordered annotated slots、post-cast feature/instruction digests 和 exact model identity；
+`proofnav/calibration/`只允许 code-owned registry 中 exact aggregate artifact 获得 production
+authority；`M3ProofState/M3OnlineVerifier` 不接受 caller risk，certificate 从实际选用
+SUPPORT atoms 按 strict familywise union 重算。所有接线默认关闭，不影响 legacy DUET/M2.1。
 
-**验收：** 每种 score 的来源、版本、依赖组和适用域可追踪；held-out calibration、shift 和相关误差检查；不具支持能力的谓词保持 unresolved，不用 GT 填补。
+**真实 micro 结果：** 预注册 `val_train_seen`、seed 0、4 batches×8、scan-hash 分区与
+absolute-logit threshold 3.0；240 条信号中 calibration 分区为 6 scans/66 observations
+（包含 10 个 null selection），2 scans 出现 false support，因而注册 artifact 的描述性
+scan-familywise bound 为 `1/3`，无 confidence guarantee。一条由 signal-only canonical
+rule 选的真实记录在诊断预算 1.0 下通过 builder→online verifier→terminal→offline
+Oracle；同一记录在 `alpha_F=0.05` 下被正确挡为 `UNRESOLVED`。前者只证明接口
+闭环，不是有用风险性能。
+
+**限定 claim：** 当前仅支持“给定 frozen benchmark annotated-slot interface 的 entity
+grounding SUPPORT/ABSTAIN”；不是 detector/entity discovery，不支持 REFUTE、semantic residual
+coverage、SAME_ENTITY、attribute、relation 或 room。artifact digest/registry 提供代码内完整性与
+authority，不是跨进程密码学传感器/模型证明。
+
+### M3-B：Null-aware evidence、coverage/identity 与正式风险
+
+**状态：未授权实施；是 M3-A `Revise` 后的下一科研边界。**
+
+**最小必要任务：**
+
+1. 用不参与 official val-unseen/test 的 scan-disjoint development/calibration labels，训练并冻结
+   target-slot+null 轻量 head；若仍不能在预注册 `alpha_F` 下获得非零 coverage，停止
+   P1/P3 entity-score method claim。
+2. 为 target 和 relation anchor proposal miss 构建 exhaustive offline labels 与 target-conditioned residual
+   head；没有 missed-residual atom 前 NOT_FOUND 继续 sealed。
+3. 用跨 viewpoint hard-positive/hard-negative pairs 校准 identity false-link；不允许 object ID
+   equality 进 runtime。
+4. 对 attribute/relation/room 建立 predicate-specific label/interface，并在固定 M4 policy 后比较
+   strict union、whole-certificate 和 anytime/sequential 方法。
+
+**最小资源阻塞：** 当前 checkpoint 已使用所有 train scans，可用的 val-unseen/test 又被
+禁止用于方法/阈值选择，所以无法从当前资产中宣称 unseen-scan finite-sample guarantee。
+最小合法选项是重训时预留 calibration scans，或新增不属于 val-unseen/test 的
+scan-disjoint labels。
 
 ### M4：Proof-obligation re-ranker 与闭环执行
 
@@ -491,7 +527,10 @@ verifier-gated terminal 接到正式闭环。
 
 - paired REVERIE 的公开授权、标注成本和 room/anchor schema；
 - VLN-NF 官方 artifact 的真实接口；
-- 当前预计算 object feature 是否足以支持属性/关系风险校准；
+- frozen absolute object logit 在本轮 micro 中只得到 `2/6` scan-familywise
+  描述性 false-support bound，轻量 null-aware head 能否在严格风险下保留非零
+  coverage 未验证；
+- 当前 annotated object feature 是否足以支持属性/关系风险校准；
 - instruction compiler 错误如何进入风险账本；
 - 有限离散 observation 语义能否支持有意义而不过度保守的 NOT-FOUND；
 - 整个离散连通域作为 scope 时，NOT-FOUND 是否退化为近乎完全遍历，以及怎样在不削弱证书语义的前提下降低完整成本；
@@ -499,8 +538,18 @@ verifier-gated terminal 接到正式闭环。
 
 ### 权限
 
-M0、M1 与 M2.1 的现有资产允许维护和小型 CPU falsification。不得自行安装关键依赖、下载大型资源、使用 GPU 运行正式实验、训练、生成正式 paired 数据或进入 M3+ perception/calibration、M4 re-ranker/正式 DUET 接线。Agent 发现风险时可以收缩 claim、改接口或提出主线内小修复，但无权自行更换问题、benchmark、DUET 基座或取消核心语义。
+M0、M1、M2.1 与 M3-A 的现有资产允许维护和小型 CPU falsification。不得自行
+安装关键依赖、下载大型资源、重跑 M0、使用 GPU 运行进一步/正式实验、训练
+M3-B head、生成正式 paired 数据，或进入 M4 re-ranker/正式 DUET 闭环。M3-B 是 P1
+失败后的方法修订和新研究阶段，需用户授权其精确数据、训练与 GPU 资源。Agent 发现
+风险时可以收缩 claim、改接口或提出主线内小修复，但无权自行更换问题、benchmark、
+DUET 基座或取消核心语义。
 
 ## 13. 当前阶段出口
 
-代码事实、信息边界、第一阶段离散对象、三项增强、接入接口和里程碑保持冻结。**M0、M1 与条件化的 M2.1 successor 已达到各自限定验收；旧 M2 实现与无条件 factual-soundness claim 未恢复。** 当前阶段停在 M2→M3 边界。下一步若进入 M3，只能在用户明确授权后实现真实 predicate/identity adapter 与 calibration falsification；不得把 M2 controlled replay 当成感知能力，也不得跳到 re-ranking、训练或正式 benchmark。
+代码事实、信息边界、第一阶段离散对象、三项增强、接入接口和里程碑保持冻结。**M0、M1 与
+条件化的 M2.1 successor 已达到各自限定验收；M3-A 完成了真实、非 Oracle、默认关闭的
+entity-SUPPORT 机械闭环，但 P1 frozen-logit 在有用风险门槛下失败，必须保留为
+`Revise`。** 当前停在 M3-A→M3-B 边界。下一步需在用户批准的 scan-disjoint labels 和轻量
+head 训练范围内重置 calibration gate；不得使用 val-unseen/test 选方法，也不得跳到 M4、
+正式 benchmark 或完整 M3 complete claim。

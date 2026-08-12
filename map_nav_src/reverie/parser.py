@@ -80,6 +80,16 @@ def parse_args():
     parser.add_argument('--m0_eval_iters', type=int, default=None)
     parser.add_argument('--m0_eval_splits', nargs='+', default=None)
 
+    # M3 real-signal extraction.  Every option is default-off so legacy DUET
+    # does not import ProofNav perception code or open an additional output.
+    parser.add_argument('--proofnav_signal_file', type=str, default=None)
+    parser.add_argument('--proofnav_signal_model_digest', type=str, default=None)
+    parser.add_argument('--proofnav_signal_checkpoint_digest', type=str, default=None)
+    parser.add_argument('--proofnav_signal_feature_digest', type=str, default=None)
+    parser.add_argument('--proofnav_signal_interface_digest', type=str, default=None)
+    parser.add_argument('--proofnav_signal_config_digest', type=str, default=None)
+    parser.add_argument('--proofnav_signal_tokenizer_digest', type=str, default=None)
+
     # Training Configurations
     parser.add_argument(
         '--optim', type=str, default='rms',

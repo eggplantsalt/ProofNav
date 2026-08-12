@@ -33,6 +33,7 @@ class GMapObjectNavAgent(Seq2SeqAgent):
         # buffer
         self.scanvp_cands = {}
         self.runtime_trace = None
+        self.proofnav_signal = None
 
     def set_runtime_trace(self, path=None):
         if self.runtime_trace is not None:
@@ -42,6 +43,134 @@ class GMapObjectNavAgent(Seq2SeqAgent):
             self.runtime_trace = RuntimeTraceSink(
                 path, self.args.fusion,
                 max_episodes=self.args.runtime_trace_max_episodes,
+            )
+
+    @staticmethod
+    def _load_proofnav_signal_boundary():
+        """Import the optional boundary only after its explicit switch is on.
+
+        Official DUET commands run from ``map_nav_src``.  In that layout the
+        repository root is not necessarily on ``sys.path``; add that one exact
+        parent only for the enabled M3 path.
+        """
+
+        try:
+            from proofnav.adapters import sanitize_duet_observation
+            from proofnav.contracts import canonical_sha256
+            from proofnav.perception.duet_signal import DuetSignalSink
+            from proofnav.perception.entity_template import build_entity_proof_template
+        except ModuleNotFoundError as exc:
+            if exc.name != 'proofnav':
+                raise
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(
+                os.path.abspath(__file__)
+            )))
+            if project_root not in sys.path:
+                sys.path.insert(0, project_root)
+            from proofnav.adapters import sanitize_duet_observation
+            from proofnav.contracts import canonical_sha256
+            from proofnav.perception.duet_signal import DuetSignalSink
+            from proofnav.perception.entity_template import build_entity_proof_template
+        return (
+            sanitize_duet_observation, DuetSignalSink,
+            build_entity_proof_template, canonical_sha256,
+        )
+
+    def set_proofnav_signal(self, path=None):
+        """Configure the separate M3 signal JSONL sink; ``None`` disables it."""
+
+        if self.proofnav_signal is not None:
+            self.proofnav_signal.close()
+            self.proofnav_signal = None
+        if path is None:
+            return
+
+        runtime_path = getattr(self.args, 'runtime_trace_file', None)
+        if (runtime_path is not None and '{split}' not in runtime_path and
+                os.path.abspath(path) == os.path.abspath(runtime_path)):
+            raise ValueError('ProofNav signal and M0 runtime trace require separate files')
+
+        model_identity = {
+            'model_digest': getattr(
+                self.args, 'proofnav_signal_model_digest', None),
+            'checkpoint_digest': getattr(
+                self.args, 'proofnav_signal_checkpoint_digest', None),
+            'feature_digest': getattr(
+                self.args, 'proofnav_signal_feature_digest', None),
+            'interface_digest': getattr(
+                self.args, 'proofnav_signal_interface_digest', None),
+            'config_digest': getattr(
+                self.args, 'proofnav_signal_config_digest', None),
+            'tokenizer_digest': getattr(
+                self.args, 'proofnav_signal_tokenizer_digest', None),
+        }
+        (sanitizer, sink_class, template_builder,
+         canonical_hasher) = self._load_proofnav_signal_boundary()
+        self._proofnav_signal_sanitizer = sanitizer
+        self._proofnav_signal_template_builder = template_builder
+        self._proofnav_canonical_sha256 = canonical_hasher
+        self.proofnav_signal = sink_class(path, model_identity)
+
+    def _emit_proofnav_signals(
+        self, obs, step, nav_outs, nav_inputs, pano_inputs, language_inputs,
+        active_mask,
+    ):
+        """Copy only agent-visible values available at the real model seam."""
+
+        if self.proofnav_signal is None:
+            return
+        if len(active_mask) != len(obs):
+            raise ValueError('ProofNav signal active mask must match batch size')
+        for batch_index, ob in enumerate(obs):
+            # ``ended`` is updated after this model call.  Therefore the
+            # current stop step is still a real observation, while rows that
+            # ended on an earlier step must not be replayed as fresh events.
+            if not bool(active_mask[batch_index]):
+                continue
+            observation = self._proofnav_signal_sanitizer(
+                ob,
+                event_id='duet-signal:%s:%d' % (str(ob['instr_id']), int(step)),
+                event_seq=int(step),
+                step=int(step),
+            )
+            template = self._proofnav_signal_template_builder(
+                observation['instruction']
+            )
+            view_length = int(pano_inputs['view_lens'][batch_index].item())
+            object_length = int(pano_inputs['obj_lens'][batch_index].item())
+            object_start = view_length + 1
+            instruction_length = len(ob['instr_encoding'])
+            packed_locations = pano_inputs['loc_fts'][batch_index]
+            angle_size = int(self.args.angle_feat_size)
+            self.proofnav_signal.emit(
+                observation=observation,
+                template_digest=self._proofnav_canonical_sha256(template),
+                object_logits=nav_outs['obj_logits'][batch_index][
+                    object_start:object_start + object_length
+                ],
+                object_valid_mask=nav_inputs['vp_obj_masks'][batch_index][
+                    object_start:object_start + object_length
+                ],
+                # Bind the actual candidate-first, padded-and-truncated model
+                # inputs at this seam.  Recombine view image+angle only to
+                # retain the frozen M1 panorama shape; view box constants are
+                # an interface/config property rather than source content.
+                panorama_features=torch.cat((
+                    pano_inputs['view_img_fts'][batch_index][:view_length],
+                    packed_locations[:view_length, :angle_size],
+                ), 1),
+                object_features=pano_inputs['obj_img_fts'][batch_index][
+                    :object_length
+                ],
+                object_angle_features=packed_locations[
+                    view_length:view_length + object_length, :angle_size
+                ],
+                object_box_features=packed_locations[
+                    view_length:view_length + object_length, angle_size:
+                ],
+                instruction_encoding=language_inputs['txt_ids'][batch_index][
+                    :instruction_length
+                ],
             )
 
     def _language_variable(self, obs):
@@ -373,6 +502,12 @@ class GMapObjectNavAgent(Seq2SeqAgent):
                 'txt_masks': language_inputs['txt_masks'],
             })
             nav_outs = self.vln_bert('navigation', nav_inputs)
+
+            if self.proofnav_signal is not None:
+                self._emit_proofnav_signals(
+                    obs, t, nav_outs, nav_inputs, pano_inputs, language_inputs,
+                    active_mask=np.logical_not(ended),
+                )
 
             if self.runtime_trace is not None:
                 for i, gmap in enumerate(gmaps):

@@ -31,6 +31,14 @@ SCHEMA_VERSIONS = {
     "terminal_decision": "proofnav.terminal-decision.v2",
     "controlled_truth": "proofnav.controlled-truth.v2",
     "offline_verification": "proofnav.offline-verification.v2",
+    # M3-A is an explicit successor boundary.  These versions describe
+    # aggregate calibration and agent-visible model signals without changing
+    # the frozen M1 or M2.1 wire contracts above.
+    "duet_model_signal": "proofnav.duet-model-signal.v1",
+    "calibration_artifact": "proofnav.calibration-artifact.v1",
+    "adapter_decision": "proofnav.adapter-decision.v1",
+    "risk_atom": "proofnav.risk-atom.v1",
+    "m3_bound_evidence": "proofnav.bound-evidence.v3",
 }
 
 SEMANTIC_DECISIONS = frozenset(("FOUND", "NOT_FOUND"))

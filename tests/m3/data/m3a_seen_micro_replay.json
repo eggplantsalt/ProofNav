@@ -1,0 +1,1127 @@
+{
+  "artifact_digest": "d2548e03e38c24423f846c372d66ed0abd1dc78b672bf9f6c965566d699f830f",
+  "schema_version": "proofnav.registered-signal-replay.v1",
+  "selected_signal_digest": "4b41f5f79d866ec0b0367580484f2aa08ab9a9586dcc37d200caed20a1e1efe9",
+  "signals": [
+    {
+      "content_digests": {
+        "instruction_encoding": {
+          "digest": "7347045d734089c5201a75d1a216ebbef09d1a242435806dbd0dc17aa4a4449a",
+          "dtype": "int64",
+          "shape": [
+            20
+          ]
+        },
+        "object_angle_features": {
+          "digest": "718113b8ab5e3de9c2241cb69c4e14162a86d6ec3b5774f8d5ba1abfc301b9c8",
+          "dtype": "float32",
+          "shape": [
+            0,
+            4
+          ]
+        },
+        "object_box_features": {
+          "digest": "5287fb34c72797339fa4d02749b08c519c3a757bbef21be068d9647421866279",
+          "dtype": "float32",
+          "shape": [
+            0,
+            3
+          ]
+        },
+        "object_features": {
+          "digest": "94a724ac84eeddeb2bf73928876c4054b98a2e70d4b56d81e9b114497ebc3636",
+          "dtype": "float32",
+          "shape": [
+            0,
+            768
+          ]
+        },
+        "panorama_features": {
+          "digest": "dc2fa45f69aeca684bdcb053c3f5f833f88fe494f106252d90a404caac64438c",
+          "dtype": "float32",
+          "shape": [
+            36,
+            772
+          ]
+        }
+      },
+      "evidence_authority": false,
+      "instruction_digest": "c4b39cbb9e586945ff45f1e1fe723e9f78095955eb45d053fd6442a3ec430fcf",
+      "model_identity": {
+        "checkpoint_digest": "c74aad4b4c330785c945844ba6a30490962623e938843477e0d062459a9918dc",
+        "config_digest": "0dcbeb53b2fd7c44d79f903fd1df3a2c9aada7a77c07ba982d108ceaa10df780",
+        "feature_digest": "6246c6d17401bfacfd0e91ddeab71df9592b9193bd12af22db8f69677509ccc5",
+        "interface_digest": "dd62c54efd9456b25273622af865bd396b5460b538221f5840c12c8902ec34b1",
+        "model_digest": "5ed16b0e2b2af6182f4ec60039f48015b9e545647fb459f091ba6e1698297d17",
+        "tokenizer_digest": "07cd6281d985191602d9c3dab43a6562a973e82a27e90d34137a175e8f189106"
+      },
+      "object_scores": {
+        "logits": [],
+        "proposal_ids": [],
+        "selected_index": null,
+        "selected_proposal_id": null,
+        "selected_statistic": null,
+        "valid_mask": []
+      },
+      "observation": {
+        "audit_trail": {
+          "producer": "proofnav.adapters.sanitize_duet_observation",
+          "source_schema": "duet.reverie._get_obs@frozen-m0"
+        },
+        "candidates": [
+          {
+            "elevation": 0.009624151643412633,
+            "evidence_role": "unobserved_navigation_proposal",
+            "feature_schema": {
+              "dtype": "float32",
+              "shape": [
+                772
+              ]
+            },
+            "heading": -4.127237128876776,
+            "point_id": 12,
+            "position": [
+              1.4133299589157104,
+              -5.161220073699951,
+              4.67411994934082
+            ],
+            "simulator_index": 1,
+            "viewpoint_id": "425e120b2d7742b1a8f0902355908761"
+          },
+          {
+            "elevation": 0.001275024401913163,
+            "evidence_role": "unobserved_navigation_proposal",
+            "feature_schema": {
+              "dtype": "float32",
+              "shape": [
+                772
+              ]
+            },
+            "heading": 1.397260800996099,
+            "point_id": 23,
+            "position": [
+              -0.7005360126495361,
+              -4.727799892425537,
+              4.659299850463867
+            ],
+            "simulator_index": 1,
+            "viewpoint_id": "95e9e714db234174b904782f1256c3f9"
+          },
+          {
+            "elevation": -0.0023957537730833144,
+            "evidence_role": "unobserved_navigation_proposal",
+            "feature_schema": {
+              "dtype": "float32",
+              "shape": [
+                772
+              ]
+            },
+            "heading": -1.0722138739285691,
+            "point_id": 18,
+            "position": [
+              1.3479100465774536,
+              -9.291299819946289,
+              4.650109767913818
+            ],
+            "simulator_index": 1,
+            "viewpoint_id": "c5f2bf41ad33497a925bead423cbfb19"
+          },
+          {
+            "elevation": 0.0052935579338044955,
+            "evidence_role": "unobserved_navigation_proposal",
+            "feature_schema": {
+              "dtype": "float32",
+              "shape": [
+                772
+              ]
+            },
+            "heading": 0.6261777955620405,
+            "point_id": 21,
+            "position": [
+              -2.213099956512451,
+              -6.747829914093018,
+              4.673999786376953
+            ],
+            "simulator_index": 1,
+            "viewpoint_id": "356a6494c8034d6d845f0bba28b8effb"
+          },
+          {
+            "elevation": 0.008405592336731452,
+            "evidence_role": "unobserved_navigation_proposal",
+            "feature_schema": {
+              "dtype": "float32",
+              "shape": [
+                772
+              ]
+            },
+            "heading": 1.050593347018741,
+            "point_id": 22,
+            "position": [
+              -0.7456870079040527,
+              -5.9223198890686035,
+              4.675169944763184
+            ],
+            "simulator_index": 1,
+            "viewpoint_id": "75bea3b92c924203951655b393e92979"
+          }
+        ],
+        "episode_id": "2401_51_0",
+        "event_id": "duet-signal:2401_51_0:0",
+        "event_seq": 0,
+        "field_schema": {
+          "feature": {
+            "dtype": "float32",
+            "shape": [
+              36,
+              772
+            ]
+          },
+          "obj_ang_fts": {
+            "dtype": "float32",
+            "shape": [
+              0,
+              4
+            ]
+          },
+          "obj_box_fts": {
+            "dtype": "float32",
+            "shape": [
+              0,
+              3
+            ]
+          },
+          "obj_img_fts": {
+            "dtype": "float32",
+            "shape": [
+              0,
+              768
+            ]
+          }
+        },
+        "instruction": "Open the small metal trash can in the spa bathroom and make sure it isn't full",
+        "instruction_encoding_length": 20,
+        "object_proposal_ids": [],
+        "pose": {
+          "elevation": 0.0,
+          "heading": 4.1887902047863905,
+          "position": [
+            1.2933000326156616,
+            -7.1087799072265625,
+            4.655340194702148
+          ]
+        },
+        "scan": "1LXtFkjw3qL",
+        "schema_version": "proofnav.observation.v1",
+        "source": "observation",
+        "step": 0,
+        "view_index": 20,
+        "viewpoint": "2816e163791e4878804d6b7476b9dddd"
+      },
+      "observation_digest": "9e1b871ad2bb62a94a5a6a777a08c1638841c93edb426c26832f3b9d12b984ec",
+      "producer": "proofnav.perception.duet_signal.build_duet_signal",
+      "schema_version": "proofnav.duet-model-signal.v1",
+      "signal_digest": "1e769270145e15aaffa97c806c2b5a0c5fe13bdde4c23eb8c57420f944b9714b",
+      "signal_semantics": "uncalibrated_duet_object_proposal_score",
+      "source_schema": "duet.reverie.forward_navigation_per_step@frozen-m0",
+      "template_digest": "f0fa3db8a8d9b7ca61e3e7cb89507b93d3385afed873dc08b4cce02a0df8b395"
+    },
+    {
+      "content_digests": {
+        "instruction_encoding": {
+          "digest": "7347045d734089c5201a75d1a216ebbef09d1a242435806dbd0dc17aa4a4449a",
+          "dtype": "int64",
+          "shape": [
+            20
+          ]
+        },
+        "object_angle_features": {
+          "digest": "3fa5a1a85c86f24791b15ed8b7c24a188666308efe6594d16adf193f79f21df6",
+          "dtype": "float32",
+          "shape": [
+            1,
+            4
+          ]
+        },
+        "object_box_features": {
+          "digest": "7790885d5cc5aac5fcad5990af5e62f85a96d23a357ea79f3c39f1ef58db2464",
+          "dtype": "float32",
+          "shape": [
+            1,
+            3
+          ]
+        },
+        "object_features": {
+          "digest": "0e4edce3094bf0e04fbc23438f4cfe1f4c9337240c8712530f3d10f37720be67",
+          "dtype": "float32",
+          "shape": [
+            1,
+            768
+          ]
+        },
+        "panorama_features": {
+          "digest": "707ef5ff9e4de9239f2623b9d982afa92feec5bddf2aea0ef24762639c171ad2",
+          "dtype": "float32",
+          "shape": [
+            36,
+            772
+          ]
+        }
+      },
+      "evidence_authority": false,
+      "instruction_digest": "c4b39cbb9e586945ff45f1e1fe723e9f78095955eb45d053fd6442a3ec430fcf",
+      "model_identity": {
+        "checkpoint_digest": "c74aad4b4c330785c945844ba6a30490962623e938843477e0d062459a9918dc",
+        "config_digest": "0dcbeb53b2fd7c44d79f903fd1df3a2c9aada7a77c07ba982d108ceaa10df780",
+        "feature_digest": "6246c6d17401bfacfd0e91ddeab71df9592b9193bd12af22db8f69677509ccc5",
+        "interface_digest": "dd62c54efd9456b25273622af865bd396b5460b538221f5840c12c8902ec34b1",
+        "model_digest": "5ed16b0e2b2af6182f4ec60039f48015b9e545647fb459f091ba6e1698297d17",
+        "tokenizer_digest": "07cd6281d985191602d9c3dab43a6562a973e82a27e90d34137a175e8f189106"
+      },
+      "object_scores": {
+        "logits": [
+          -9.513404846191406
+        ],
+        "proposal_ids": [
+          "16"
+        ],
+        "selected_index": 0,
+        "selected_proposal_id": "16",
+        "selected_statistic": -9.513404846191406,
+        "valid_mask": [
+          true
+        ]
+      },
+      "observation": {
+        "audit_trail": {
+          "producer": "proofnav.adapters.sanitize_duet_observation",
+          "source_schema": "duet.reverie._get_obs@frozen-m0"
+        },
+        "candidates": [
+          {
+            "elevation": 0.0023957537730833144,
+            "evidence_role": "unobserved_navigation_proposal",
+            "feature_schema": {
+              "dtype": "float32",
+              "shape": [
+                772
+              ]
+            },
+            "heading": -3.166608976321765,
+            "point_id": 12,
+            "position": [
+              1.2933000326156616,
+              -7.1087799072265625,
+              4.655340194702148
+            ],
+            "simulator_index": 1,
+            "viewpoint_id": "2816e163791e4878804d6b7476b9dddd"
+          },
+          {
+            "elevation": 0.006317862718372955,
+            "evidence_role": "unobserved_navigation_proposal",
+            "feature_schema": {
+              "dtype": "float32",
+              "shape": [
+                772
+              ]
+            },
+            "heading": 2.5855621488535965,
+            "point_id": 23,
+            "position": [
+              -0.7456870079040527,
+              -5.9223198890686035,
+              4.675169944763184
+            ],
+            "simulator_index": 1,
+            "viewpoint_id": "75bea3b92c924203951655b393e92979"
+          },
+          {
+            "elevation": -0.0030688216687501536,
+            "evidence_role": "unobserved_navigation_proposal",
+            "feature_schema": {
+              "dtype": "float32",
+              "shape": [
+                772
+              ]
+            },
+            "heading": -0.1306043416261673,
+            "point_id": 18,
+            "position": [
+              1.6139899492263794,
+              -11.317000389099121,
+              4.6438398361206055
+            ],
+            "simulator_index": 1,
+            "viewpoint_id": "b8196686626248beb76ea7c31e6e44e2"
+          },
+          {
+            "elevation": 0.006256216499451299,
+            "evidence_role": "unobserved_navigation_proposal",
+            "feature_schema": {
+              "dtype": "float32",
+              "shape": [
+                772
+              ]
+            },
+            "heading": 1.6230619522419314,
+            "point_id": 21,
+            "position": [
+              -2.273930072784424,
+              -9.101829528808594,
+              4.672800064086914
+            ],
+            "simulator_index": 1,
+            "viewpoint_id": "0f1ba9e425a0452eade2a180cfa41e32"
+          }
+        ],
+        "episode_id": "2401_51_0",
+        "event_id": "duet-signal:2401_51_0:1",
+        "event_seq": 1,
+        "field_schema": {
+          "feature": {
+            "dtype": "float32",
+            "shape": [
+              36,
+              772
+            ]
+          },
+          "obj_ang_fts": {
+            "dtype": "float32",
+            "shape": [
+              1,
+              4
+            ]
+          },
+          "obj_box_fts": {
+            "dtype": "float32",
+            "shape": [
+              1,
+              3
+            ]
+          },
+          "obj_img_fts": {
+            "dtype": "float32",
+            "shape": [
+              1,
+              768
+            ]
+          }
+        },
+        "instruction": "Open the small metal trash can in the spa bathroom and make sure it isn't full",
+        "instruction_encoding_length": 20,
+        "object_proposal_ids": [
+          "16"
+        ],
+        "pose": {
+          "elevation": 0.0,
+          "heading": 3.141592653589793,
+          "position": [
+            1.3479100465774536,
+            -9.291299819946289,
+            4.650109767913818
+          ]
+        },
+        "scan": "1LXtFkjw3qL",
+        "schema_version": "proofnav.observation.v1",
+        "source": "observation",
+        "step": 1,
+        "view_index": 18,
+        "viewpoint": "c5f2bf41ad33497a925bead423cbfb19"
+      },
+      "observation_digest": "881c40f5409ceba1173413f2dcfd308a3500ffe66ea703543df6c8e35342397e",
+      "producer": "proofnav.perception.duet_signal.build_duet_signal",
+      "schema_version": "proofnav.duet-model-signal.v1",
+      "signal_digest": "290da1191648db6845dbf39426c8615b0e829aad4b69fe10546708b9cba56488",
+      "signal_semantics": "uncalibrated_duet_object_proposal_score",
+      "source_schema": "duet.reverie.forward_navigation_per_step@frozen-m0",
+      "template_digest": "f0fa3db8a8d9b7ca61e3e7cb89507b93d3385afed873dc08b4cce02a0df8b395"
+    },
+    {
+      "content_digests": {
+        "instruction_encoding": {
+          "digest": "7347045d734089c5201a75d1a216ebbef09d1a242435806dbd0dc17aa4a4449a",
+          "dtype": "int64",
+          "shape": [
+            20
+          ]
+        },
+        "object_angle_features": {
+          "digest": "fb27064daeaf0db45d996f0a11439db23fe3b4e81292664c8656f75e62aea130",
+          "dtype": "float32",
+          "shape": [
+            4,
+            4
+          ]
+        },
+        "object_box_features": {
+          "digest": "278704d8ebd3070b2f7e8fa4c39a4d37e7fde8ddc310935dbf28753812d22d5a",
+          "dtype": "float32",
+          "shape": [
+            4,
+            3
+          ]
+        },
+        "object_features": {
+          "digest": "e39afae081f0d38c9c4a36a3ca75c9cd2bd5ac91126875e682cb14e95d8ac63c",
+          "dtype": "float32",
+          "shape": [
+            4,
+            768
+          ]
+        },
+        "panorama_features": {
+          "digest": "f1f4c7c205234c5b89eab9b81d2bbc80c38a3c4dcf0c0af0c716cf5c5550a050",
+          "dtype": "float32",
+          "shape": [
+            37,
+            772
+          ]
+        }
+      },
+      "evidence_authority": false,
+      "instruction_digest": "c4b39cbb9e586945ff45f1e1fe723e9f78095955eb45d053fd6442a3ec430fcf",
+      "model_identity": {
+        "checkpoint_digest": "c74aad4b4c330785c945844ba6a30490962623e938843477e0d062459a9918dc",
+        "config_digest": "0dcbeb53b2fd7c44d79f903fd1df3a2c9aada7a77c07ba982d108ceaa10df780",
+        "feature_digest": "6246c6d17401bfacfd0e91ddeab71df9592b9193bd12af22db8f69677509ccc5",
+        "interface_digest": "dd62c54efd9456b25273622af865bd396b5460b538221f5840c12c8902ec34b1",
+        "model_digest": "5ed16b0e2b2af6182f4ec60039f48015b9e545647fb459f091ba6e1698297d17",
+        "tokenizer_digest": "07cd6281d985191602d9c3dab43a6562a973e82a27e90d34137a175e8f189106"
+      },
+      "object_scores": {
+        "logits": [
+          -5.513490676879883,
+          -9.641624450683594,
+          -10.460870742797852,
+          -9.628438949584961
+        ],
+        "proposal_ids": [
+          "23",
+          "4",
+          "12",
+          "27"
+        ],
+        "selected_index": 0,
+        "selected_proposal_id": "23",
+        "selected_statistic": -5.513490676879883,
+        "valid_mask": [
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "observation": {
+        "audit_trail": {
+          "producer": "proofnav.adapters.sanitize_duet_observation",
+          "source_schema": "duet.reverie._get_obs@frozen-m0"
+        },
+        "candidates": [
+          {
+            "elevation": 0.000509482590072254,
+            "evidence_role": "unobserved_navigation_proposal",
+            "feature_schema": {
+              "dtype": "float32",
+              "shape": [
+                772
+              ]
+            },
+            "heading": -4.686553555723053,
+            "point_id": 12,
+            "position": [
+              -2.213099956512451,
+              -6.747829914093018,
+              4.673999786376953
+            ],
+            "simulator_index": 1,
+            "viewpoint_id": "356a6494c8034d6d845f0bba28b8effb"
+          },
+          {
+            "elevation": -0.002904257346193381,
+            "evidence_role": "unobserved_navigation_proposal",
+            "feature_schema": {
+              "dtype": "float32",
+              "shape": [
+                772
+              ]
+            },
+            "heading": -4.367087754272551,
+            "point_id": 13,
+            "position": [
+              -0.7005360126495361,
+              -4.727799892425537,
+              4.659299850463867
+            ],
+            "simulator_index": 2,
+            "viewpoint_id": "95e9e714db234174b904782f1256c3f9"
+          },
+          {
+            "elevation": 0.0006717881058813284,
+            "evidence_role": "unobserved_navigation_proposal",
+            "feature_schema": {
+              "dtype": "float32",
+              "shape": [
+                772
+              ]
+            },
+            "heading": -4.2643378626934,
+            "point_id": 13,
+            "position": [
+              -0.7456870079040527,
+              -5.9223198890686035,
+              4.675169944763184
+            ],
+            "simulator_index": 1,
+            "viewpoint_id": "75bea3b92c924203951655b393e92979"
+          },
+          {
+            "elevation": -0.006256216499451299,
+            "evidence_role": "unobserved_navigation_proposal",
+            "feature_schema": {
+              "dtype": "float32",
+              "shape": [
+                772
+              ]
+            },
+            "heading": -3.0893270281427583,
+            "point_id": 15,
+            "position": [
+              1.3479100465774536,
+              -9.291299819946289,
+              4.650109767913818
+            ],
+            "simulator_index": 1,
+            "viewpoint_id": "c5f2bf41ad33497a925bead423cbfb19"
+          },
+          {
+            "elevation": -0.002784728031503594,
+            "evidence_role": "unobserved_navigation_proposal",
+            "feature_schema": {
+              "dtype": "float32",
+              "shape": [
+                772
+              ]
+            },
+            "heading": -1.243719459241413,
+            "point_id": 19,
+            "position": [
+              -2.8900198936462402,
+              -10.917799949645996,
+              4.667459964752197
+            ],
+            "simulator_index": 1,
+            "viewpoint_id": "14a8edbbe4b14a05b1b5782a884fb6bf"
+          }
+        ],
+        "episode_id": "2401_51_0",
+        "event_id": "duet-signal:2401_51_0:2",
+        "event_seq": 2,
+        "field_schema": {
+          "feature": {
+            "dtype": "float32",
+            "shape": [
+              36,
+              772
+            ]
+          },
+          "obj_ang_fts": {
+            "dtype": "float32",
+            "shape": [
+              4,
+              4
+            ]
+          },
+          "obj_box_fts": {
+            "dtype": "float32",
+            "shape": [
+              4,
+              3
+            ]
+          },
+          "obj_img_fts": {
+            "dtype": "float32",
+            "shape": [
+              4,
+              768
+            ]
+          }
+        },
+        "instruction": "Open the small metal trash can in the spa bathroom and make sure it isn't full",
+        "instruction_encoding_length": 20,
+        "object_proposal_ids": [
+          "23",
+          "4",
+          "12",
+          "27"
+        ],
+        "pose": {
+          "elevation": 0.0,
+          "heading": 4.71238898038469,
+          "position": [
+            -2.273930072784424,
+            -9.101829528808594,
+            4.672800064086914
+          ]
+        },
+        "scan": "1LXtFkjw3qL",
+        "schema_version": "proofnav.observation.v1",
+        "source": "observation",
+        "step": 2,
+        "view_index": 21,
+        "viewpoint": "0f1ba9e425a0452eade2a180cfa41e32"
+      },
+      "observation_digest": "a0ad330bd8b3a11974d691da0315380bfb1afb8d4f2c3973f516958a1890f051",
+      "producer": "proofnav.perception.duet_signal.build_duet_signal",
+      "schema_version": "proofnav.duet-model-signal.v1",
+      "signal_digest": "801c34426496022fba62ea0dd81c5872fc59ae1a8ed1faa09d9d770f3578a89b",
+      "signal_semantics": "uncalibrated_duet_object_proposal_score",
+      "source_schema": "duet.reverie.forward_navigation_per_step@frozen-m0",
+      "template_digest": "f0fa3db8a8d9b7ca61e3e7cb89507b93d3385afed873dc08b4cce02a0df8b395"
+    },
+    {
+      "content_digests": {
+        "instruction_encoding": {
+          "digest": "7347045d734089c5201a75d1a216ebbef09d1a242435806dbd0dc17aa4a4449a",
+          "dtype": "int64",
+          "shape": [
+            20
+          ]
+        },
+        "object_angle_features": {
+          "digest": "718113b8ab5e3de9c2241cb69c4e14162a86d6ec3b5774f8d5ba1abfc301b9c8",
+          "dtype": "float32",
+          "shape": [
+            0,
+            4
+          ]
+        },
+        "object_box_features": {
+          "digest": "5287fb34c72797339fa4d02749b08c519c3a757bbef21be068d9647421866279",
+          "dtype": "float32",
+          "shape": [
+            0,
+            3
+          ]
+        },
+        "object_features": {
+          "digest": "94a724ac84eeddeb2bf73928876c4054b98a2e70d4b56d81e9b114497ebc3636",
+          "dtype": "float32",
+          "shape": [
+            0,
+            768
+          ]
+        },
+        "panorama_features": {
+          "digest": "da65b55c855951da55a820c164fa5cd8e8689c0cf2292ee86812bcf9a6b3a5dc",
+          "dtype": "float32",
+          "shape": [
+            38,
+            772
+          ]
+        }
+      },
+      "evidence_authority": false,
+      "instruction_digest": "c4b39cbb9e586945ff45f1e1fe723e9f78095955eb45d053fd6442a3ec430fcf",
+      "model_identity": {
+        "checkpoint_digest": "c74aad4b4c330785c945844ba6a30490962623e938843477e0d062459a9918dc",
+        "config_digest": "0dcbeb53b2fd7c44d79f903fd1df3a2c9aada7a77c07ba982d108ceaa10df780",
+        "feature_digest": "6246c6d17401bfacfd0e91ddeab71df9592b9193bd12af22db8f69677509ccc5",
+        "interface_digest": "dd62c54efd9456b25273622af865bd396b5460b538221f5840c12c8902ec34b1",
+        "model_digest": "5ed16b0e2b2af6182f4ec60039f48015b9e545647fb459f091ba6e1698297d17",
+        "tokenizer_digest": "07cd6281d985191602d9c3dab43a6562a973e82a27e90d34137a175e8f189106"
+      },
+      "object_scores": {
+        "logits": [],
+        "proposal_ids": [],
+        "selected_index": null,
+        "selected_proposal_id": null,
+        "selected_statistic": null,
+        "valid_mask": []
+      },
+      "observation": {
+        "audit_trail": {
+          "producer": "proofnav.adapters.sanitize_duet_observation",
+          "source_schema": "duet.reverie._get_obs@frozen-m0"
+        },
+        "candidates": [
+          {
+            "elevation": 0.002784728031503594,
+            "evidence_role": "unobserved_navigation_proposal",
+            "feature_schema": {
+              "dtype": "float32",
+              "shape": [
+                772
+              ]
+            },
+            "heading": -3.338114561634608,
+            "point_id": 13,
+            "position": [
+              -2.273930072784424,
+              -9.101829528808594,
+              4.672800064086914
+            ],
+            "simulator_index": 1,
+            "viewpoint_id": "0f1ba9e425a0452eade2a180cfa41e32"
+          },
+          {
+            "elevation": -0.005223719206043407,
+            "evidence_role": "unobserved_navigation_proposal",
+            "feature_schema": {
+              "dtype": "float32",
+              "shape": [
+                772
+              ]
+            },
+            "heading": -2.0059938667531463,
+            "point_id": 15,
+            "position": [
+              1.6139899492263794,
+              -11.317000389099121,
+              4.6438398361206055
+            ],
+            "simulator_index": 1,
+            "viewpoint_id": "b8196686626248beb76ea7c31e6e44e2"
+          },
+          {
+            "elevation": 0.024583664601356314,
+            "evidence_role": "unobserved_navigation_proposal",
+            "feature_schema": {
+              "dtype": "float32",
+              "shape": [
+                772
+              ]
+            },
+            "heading": -0.7216769311158768,
+            "point_id": 18,
+            "position": [
+              -2.0391299724578857,
+              -15.15719985961914,
+              4.77377986907959
+            ],
+            "simulator_index": 3,
+            "viewpoint_id": "9f604c054f8f4a0da5778d3c0b36575d"
+          },
+          {
+            "elevation": 0.004207180253571545,
+            "evidence_role": "unobserved_navigation_proposal",
+            "feature_schema": {
+              "dtype": "float32",
+              "shape": [
+                772
+              ]
+            },
+            "heading": -0.567700274619352,
+            "point_id": 18,
+            "position": [
+              -2.7508599758148193,
+              -14.071200370788574,
+              4.680739879608154
+            ],
+            "simulator_index": 1,
+            "viewpoint_id": "483b844778c545d899860802e9c5c9d5"
+          },
+          {
+            "elevation": 0.0058236483088163855,
+            "evidence_role": "unobserved_navigation_proposal",
+            "feature_schema": {
+              "dtype": "float32",
+              "shape": [
+                772
+              ]
+            },
+            "heading": -0.43509618225980917,
+            "point_id": 18,
+            "position": [
+              -3.186729907989502,
+              -14.26159954071045,
+              4.687009811401367
+            ],
+            "simulator_index": 2,
+            "viewpoint_id": "68f75a181e364970b3f1cf783c0380fa"
+          }
+        ],
+        "episode_id": "2401_51_0",
+        "event_id": "duet-signal:2401_51_0:3",
+        "event_seq": 3,
+        "field_schema": {
+          "feature": {
+            "dtype": "float32",
+            "shape": [
+              36,
+              772
+            ]
+          },
+          "obj_ang_fts": {
+            "dtype": "float32",
+            "shape": [
+              0,
+              4
+            ]
+          },
+          "obj_box_fts": {
+            "dtype": "float32",
+            "shape": [
+              0,
+              3
+            ]
+          },
+          "obj_img_fts": {
+            "dtype": "float32",
+            "shape": [
+              0,
+              768
+            ]
+          }
+        },
+        "instruction": "Open the small metal trash can in the spa bathroom and make sure it isn't full",
+        "instruction_encoding_length": 20,
+        "object_proposal_ids": [],
+        "pose": {
+          "elevation": 0.0,
+          "heading": 3.665191429188092,
+          "position": [
+            -2.8900198936462402,
+            -10.917799949645996,
+            4.667459964752197
+          ]
+        },
+        "scan": "1LXtFkjw3qL",
+        "schema_version": "proofnav.observation.v1",
+        "source": "observation",
+        "step": 3,
+        "view_index": 19,
+        "viewpoint": "14a8edbbe4b14a05b1b5782a884fb6bf"
+      },
+      "observation_digest": "76e5fe7fcf8f3bcfcede90c61d4851ebd93b136458458bd28da1bd9c389040f2",
+      "producer": "proofnav.perception.duet_signal.build_duet_signal",
+      "schema_version": "proofnav.duet-model-signal.v1",
+      "signal_digest": "6117c525af10d6c49560693a8adbbf4f72b76acbc2f13b239890f2e1728852e6",
+      "signal_semantics": "uncalibrated_duet_object_proposal_score",
+      "source_schema": "duet.reverie.forward_navigation_per_step@frozen-m0",
+      "template_digest": "f0fa3db8a8d9b7ca61e3e7cb89507b93d3385afed873dc08b4cce02a0df8b395"
+    },
+    {
+      "content_digests": {
+        "instruction_encoding": {
+          "digest": "7347045d734089c5201a75d1a216ebbef09d1a242435806dbd0dc17aa4a4449a",
+          "dtype": "int64",
+          "shape": [
+            20
+          ]
+        },
+        "object_angle_features": {
+          "digest": "12c0b9b94513a42bf8ddae66a2f3a4290be48f2e435c4fd0db2ed048b43a127b",
+          "dtype": "float32",
+          "shape": [
+            4,
+            4
+          ]
+        },
+        "object_box_features": {
+          "digest": "ed36832b01032939f6c34fb46ef510936641a5ff4afc6e07f13f8c4536842eb7",
+          "dtype": "float32",
+          "shape": [
+            4,
+            3
+          ]
+        },
+        "object_features": {
+          "digest": "c2adbaca0af382cde94bde9aeb8891f89699d7377be7bef7e659713b2217ae64",
+          "dtype": "float32",
+          "shape": [
+            4,
+            768
+          ]
+        },
+        "panorama_features": {
+          "digest": "d05dcc5af0c78ccc39facca4dbc84028c9d997a5d4b22b216b16404fd36968ea",
+          "dtype": "float32",
+          "shape": [
+            36,
+            772
+          ]
+        }
+      },
+      "evidence_authority": false,
+      "instruction_digest": "c4b39cbb9e586945ff45f1e1fe723e9f78095955eb45d053fd6442a3ec430fcf",
+      "model_identity": {
+        "checkpoint_digest": "c74aad4b4c330785c945844ba6a30490962623e938843477e0d062459a9918dc",
+        "config_digest": "0dcbeb53b2fd7c44d79f903fd1df3a2c9aada7a77c07ba982d108ceaa10df780",
+        "feature_digest": "6246c6d17401bfacfd0e91ddeab71df9592b9193bd12af22db8f69677509ccc5",
+        "interface_digest": "dd62c54efd9456b25273622af865bd396b5460b538221f5840c12c8902ec34b1",
+        "model_digest": "5ed16b0e2b2af6182f4ec60039f48015b9e545647fb459f091ba6e1698297d17",
+        "tokenizer_digest": "07cd6281d985191602d9c3dab43a6562a973e82a27e90d34137a175e8f189106"
+      },
+      "object_scores": {
+        "logits": [
+          -10.960506439208984,
+          -11.037278175354004,
+          -10.37856388092041,
+          5.40303897857666
+        ],
+        "proposal_ids": [
+          "48",
+          "42",
+          "43",
+          "51"
+        ],
+        "selected_index": 3,
+        "selected_proposal_id": "51",
+        "selected_statistic": 5.40303897857666,
+        "valid_mask": [
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "observation": {
+        "audit_trail": {
+          "producer": "proofnav.adapters.sanitize_duet_observation",
+          "source_schema": "duet.reverie._get_obs@frozen-m0"
+        },
+        "candidates": [
+          {
+            "elevation": -0.024583664601356314,
+            "evidence_role": "unobserved_navigation_proposal",
+            "feature_schema": {
+              "dtype": "float32",
+              "shape": [
+                772
+              ]
+            },
+            "heading": -3.3396708091073712,
+            "point_id": 12,
+            "position": [
+              -2.8900198936462402,
+              -10.917799949645996,
+              4.667459964752197
+            ],
+            "simulator_index": 1,
+            "viewpoint_id": "14a8edbbe4b14a05b1b5782a884fb6bf"
+          },
+          {
+            "elevation": -0.07153277915028385,
+            "evidence_role": "unobserved_navigation_proposal",
+            "feature_schema": {
+              "dtype": "float32",
+              "shape": [
+                772
+              ]
+            },
+            "heading": 2.5614525878573025,
+            "point_id": 23,
+            "position": [
+              -2.7508599758148193,
+              -14.071200370788574,
+              4.680739879608154
+            ],
+            "simulator_index": 1,
+            "viewpoint_id": "483b844778c545d899860802e9c5c9d5"
+          },
+          {
+            "elevation": 0.0004788971633722443,
+            "evidence_role": "unobserved_navigation_proposal",
+            "feature_schema": {
+              "dtype": "float32",
+              "shape": [
+                772
+              ]
+            },
+            "heading": -0.05821923911571503,
+            "point_id": 18,
+            "position": [
+              -1.939479947090149,
+              -16.866899490356445,
+              4.774600028991699
+            ],
+            "simulator_index": 1,
+            "viewpoint_id": "67d9b711455f43db8e5270016d4bd873"
+          },
+          {
+            "elevation": -0.05953633417244566,
+            "evidence_role": "unobserved_navigation_proposal",
+            "feature_schema": {
+              "dtype": "float32",
+              "shape": [
+                772
+              ]
+            },
+            "heading": 2.2334784580584017,
+            "point_id": 22,
+            "position": [
+              -3.186729907989502,
+              -14.26159954071045,
+              4.687009811401367
+            ],
+            "simulator_index": 1,
+            "viewpoint_id": "68f75a181e364970b3f1cf783c0380fa"
+          }
+        ],
+        "episode_id": "2401_51_0",
+        "event_id": "duet-signal:2401_51_0:4",
+        "event_seq": 4,
+        "field_schema": {
+          "feature": {
+            "dtype": "float32",
+            "shape": [
+              36,
+              772
+            ]
+          },
+          "obj_ang_fts": {
+            "dtype": "float32",
+            "shape": [
+              4,
+              4
+            ]
+          },
+          "obj_box_fts": {
+            "dtype": "float32",
+            "shape": [
+              4,
+              3
+            ]
+          },
+          "obj_img_fts": {
+            "dtype": "float32",
+            "shape": [
+              4,
+              768
+            ]
+          }
+        },
+        "instruction": "Open the small metal trash can in the spa bathroom and make sure it isn't full",
+        "instruction_encoding_length": 20,
+        "object_proposal_ids": [
+          "48",
+          "42",
+          "43",
+          "51"
+        ],
+        "pose": {
+          "elevation": 0.0,
+          "heading": 3.141592653589793,
+          "position": [
+            -2.0391299724578857,
+            -15.15719985961914,
+            4.77377986907959
+          ]
+        },
+        "scan": "1LXtFkjw3qL",
+        "schema_version": "proofnav.observation.v1",
+        "source": "observation",
+        "step": 4,
+        "view_index": 18,
+        "viewpoint": "9f604c054f8f4a0da5778d3c0b36575d"
+      },
+      "observation_digest": "e4fb196a28125bf6706b6be2defd90f81717284d061ef2f6a27dcdd8e24802a3",
+      "producer": "proofnav.perception.duet_signal.build_duet_signal",
+      "schema_version": "proofnav.duet-model-signal.v1",
+      "signal_digest": "4b41f5f79d866ec0b0367580484f2aa08ab9a9586dcc37d200caed20a1e1efe9",
+      "signal_semantics": "uncalibrated_duet_object_proposal_score",
+      "source_schema": "duet.reverie.forward_navigation_per_step@frozen-m0",
+      "template_digest": "f0fa3db8a8d9b7ca61e3e7cb89507b93d3385afed873dc08b4cce02a0df8b395"
+    }
+  ]
+}

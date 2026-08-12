@@ -17,6 +17,7 @@ from proofnav.runtime.semantics import (
 
 _PRODUCTION_PROFILE_ID = "proofnav.admission.production-zero.v2"
 _CONTROLLED_PROFILE_ID = "proofnav.admission.controlled-replay.v2"
+_M3_PROFILE_ID = "proofnav.admission.m3-entity-support.v1"
 
 
 def _copy(value):
@@ -41,12 +42,21 @@ def _controlled_admission_profile(scope):
     return registered_admission_profile(True)
 
 
+def _m3_admission_profile(scope):
+    """Return the exact M3 entity-SUPPORT profile; it is not configurable."""
+
+    del scope
+    return registered_admission_profile(m3=True)
+
+
 def _validate_code_owned_profile(scope, profile):
-    expected = (
-        _controlled_admission_profile(scope)
-        if profile.get("profile_id") == _CONTROLLED_PROFILE_ID
-        else _production_admission_profile(scope)
-    )
+    profile_id = profile.get("profile_id")
+    if profile_id == _CONTROLLED_PROFILE_ID:
+        expected = _controlled_admission_profile(scope)
+    elif profile_id == _M3_PROFILE_ID:
+        expected = _m3_admission_profile(scope)
+    else:
+        expected = _production_admission_profile(scope)
     if profile != expected:
         _fail(
             "ADMISSION_PROFILE_NOT_CODE_OWNED", "$.admission_profile",
@@ -156,10 +166,16 @@ class _ProofStateCore(object):
         self._allow_controlled = (
             self._admission_profile["evidence_mode"] == "controlled_replay"
         )
+        self._allow_m3 = (
+            self._admission_profile["evidence_mode"] == "m3_entity_support"
+        )
         self._transitions = []
         # This validates scope, template, risk claims, and the exact profile
         # before the object becomes externally usable.
-        self._view = recompute_view(self._base_bundle(), self._allow_controlled)
+        self._view = recompute_view(
+            self._base_bundle(), allow_controlled=self._allow_controlled,
+            allow_m3=self._allow_m3,
+        )
         self._ledger_view = EvidenceLedger(self)
 
     def _base_bundle(self, transitions=None):
@@ -181,7 +197,9 @@ class _ProofStateCore(object):
         transition = make_transition(candidate, event_type, _copy(payload))
         candidate.append(transition)
         candidate_view = recompute_view(
-            self._base_bundle(candidate), self._allow_controlled,
+            self._base_bundle(candidate),
+            allow_controlled=self._allow_controlled,
+            allow_m3=self._allow_m3,
         )
         self._transitions = candidate
         self._view = candidate_view
@@ -328,3 +346,15 @@ class ProofState(_ProofStateCore):
             scope, template, risk_claims,
             _production_admission_profile(scope),
         )
+
+
+class M3ProofState(_ProofStateCore):
+    """Explicit M3-A state for calibrated entity SUPPORT evidence only.
+
+    Unlike the frozen M2 constructor, this successor intentionally has no
+    ``risk_claims`` argument.  Certificate risk is derived later from the
+    evidence actually selected by the certificate builder.
+    """
+
+    def __init__(self, scope, template):
+        super().__init__(scope, template, {}, _m3_admission_profile(scope))

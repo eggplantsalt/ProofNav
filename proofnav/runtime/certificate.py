@@ -319,9 +319,27 @@ class CertificateBuilder(object):
         derived_risk = None
         if _m3_profile(snapshot):
             try:
+                from proofnav.calibration.registry import (  # pylint: disable=import-outside-toplevel
+                    require_registered_observation_digest,
+                )
                 from proofnav.calibration.risk import (  # pylint: disable=import-outside-toplevel
                     compose_certificate_risk,
                 )
+                prefix = "proofnav.calibration-artifact.v1:"
+                version = bundle["scope"]["calibration_version"]
+                if not version.startswith(prefix):
+                    raise ContractViolation(
+                        "M3_CALIBRATION_VERSION",
+                        "$.scope.calibration_version",
+                        "exact registered artifact required",
+                    )
+                artifact_digest = version[len(prefix):]
+                for transition in bundle["transitions"]:
+                    if transition["event_type"] == "OBSERVATION":
+                        require_registered_observation_digest(
+                            artifact_digest,
+                            canonical_sha256(transition["payload"]),
+                        )
                 selected = [evidence[key] for key in sorted(evidence_ids)]
                 derived_risk = compose_certificate_risk(
                     selected, "FOUND", bundle["scope"],

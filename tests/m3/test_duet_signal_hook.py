@@ -13,6 +13,7 @@ from unittest import mock
 import numpy as np
 
 from proofnav.contracts import ContractViolation, canonical_sha256
+from proofnav.adapters import derive_runtime_episode_id
 from proofnav.offline.structural_audit import _offline_m3_signal
 from proofnav.perception.evidence_adapter import validate_duet_signal
 from proofnav.perception.duet_signal import (
@@ -240,6 +241,15 @@ class DuetSignalBuilderTests(unittest.TestCase):
 
 class DuetSignalDefaultOffTests(unittest.TestCase):
 
+    def test_runtime_episode_identity_excludes_raw_target_bearing_id(self):
+        first = derive_runtime_episode_id("scan-a", "vp-start", "Find the chair")
+        same = derive_runtime_episode_id("scan-a", "vp-start", "Find the chair")
+        changed = derive_runtime_episode_id("scan-a", "vp-start", "Find the table")
+        self.assertEqual(first, same)
+        self.assertNotEqual(first, changed)
+        self.assertTrue(first.startswith("runtime-episode-"))
+        self.assertNotIn("2401_51_0", first)
+
     def test_emitter_skips_rows_that_ended_before_current_model_step(self):
         """Execute the source emitter without importing the GPU DUET stack."""
 
@@ -270,8 +280,10 @@ class DuetSignalDefaultOffTests(unittest.TestCase):
         owner.args = type("Args", (), {"angle_feat_size": 4})()
         owner._proofnav_signal_sanitizer = lambda ob, **event: {
             "instruction": ob["instruction"],
-            "episode_id": ob["instr_id"],
-            **event,
+            "episode_id": event["runtime_episode_id"],
+            "event_id": event["event_id"],
+            "event_seq": event["event_seq"],
+            "step": event["step"],
         }
         owner._proofnav_signal_template_builder = lambda instruction: {
             "instruction": instruction,
@@ -304,9 +316,12 @@ class DuetSignalDefaultOffTests(unittest.TestCase):
             common,
             {"txt_ids": [np.asarray([1, 2]), np.asarray([3, 4])]},
             active_mask=np.asarray([True, False]),
+            runtime_episode_ids=["runtime-episode-a", "runtime-episode-b"],
         )
         self.assertEqual(len(emitted), 1)
-        self.assertEqual(emitted[0]["observation"]["episode_id"], "active")
+        self.assertEqual(
+            emitted[0]["observation"]["episode_id"], "runtime-episode-a",
+        )
         self.assertEqual(emitted[0]["observation"]["event_seq"], 4)
         self.assertEqual(emitted[0]["object_logits"].tolist(), [7.0])
 
@@ -379,7 +394,10 @@ class DuetSignalDefaultOffTests(unittest.TestCase):
             "self.proofnav_signal is None",
             ast.get_source_segment(source, emit.body[1].test),
         )
-        self.assertEqual(emit.args.args[-1].arg, "active_mask")
+        self.assertEqual(
+            [item.arg for item in emit.args.args[-2:]],
+            ["active_mask", "runtime_episode_ids"],
+        )
         loop = next(node for node in emit.body if isinstance(node, ast.For))
         active_guard = next(
             node for node in loop.body

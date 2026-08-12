@@ -16,13 +16,14 @@ from proofnav.contracts import ContractViolation, canonical_sha256
 
 REGISTRY_SCHEMA_VERSION = "proofnav.calibration-registry.v1"
 REGISTRY_MANIFEST_DIGEST = (
-    "897058ac5cd0a4caa648d6ebef73d9d7e10397aa6dc8e6a6761a87f388120837"
+    "ec8ad033195d3f79e5b3b2ed8788eac19492efe2927c579d04a655647636c316"
 )
 _REGISTRY_PATH = Path(__file__).with_name("registered_artifacts.json")
 _REGISTRY_FIELDS = frozenset(("schema_version", "entries"))
 _ENTRY_FIELDS = frozenset((
     "artifact_digest", "artifact_resource", "purpose",
     "signal_manifest_digest", "signal_manifest_resource", "source_revision",
+    "replay_digest", "replay_resource",
 ))
 _SIGNAL_MANIFEST_FIELDS = frozenset((
     "schema_version", "artifact_digest", "source_jsonl_sha256",
@@ -68,6 +69,7 @@ def _load_registry():
     by_digest = {}
     artifacts = {}
     signal_digests = {}
+    observation_digests = {}
     for index, entry in enumerate(entries):
         location = "$.calibration_registry.entries[%d]" % index
         if not isinstance(entry, dict) or set(entry) != _ENTRY_FIELDS:
@@ -77,9 +79,10 @@ def _load_registry():
             entry["signal_manifest_digest"],
             location + ".signal_manifest_digest",
         )
+        _sha256(entry["replay_digest"], location + ".replay_digest")
         for key in (
                 "artifact_resource", "purpose", "signal_manifest_resource",
-                "source_revision"):
+                "source_revision", "replay_resource"):
             if not isinstance(entry[key], str) or not entry[key]:
                 _fail("M3_REGISTRY_SCHEMA", location + "." + key, "non-empty string required")
         if prior is not None and digest <= prior:
@@ -184,6 +187,38 @@ def _load_registry():
                 "frozen partition-2 rule required",
             )
         signal_digests[digest] = frozenset(signals)
+        replay_resource = Path(entry["replay_resource"])
+        if replay_resource.is_absolute() or ".." in replay_resource.parts:
+            _fail("M3_REPLAY_RESOURCE", location + ".replay_resource", "invalid replay path")
+        replay_path = Path(__file__).parent / replay_resource
+        try:
+            with replay_path.open("r", encoding="utf-8") as handle:
+                replay = json.load(handle)
+        except (OSError, ValueError) as error:
+            _fail("M3_REPLAY_RESOURCE", location + ".replay_resource", str(error))
+        if canonical_sha256(replay) != entry["replay_digest"]:
+            _fail("M3_REPLAY_SEAL", location + ".replay_resource", "replay changed")
+        if (not isinstance(replay, dict)
+                or replay.get("schema_version") != "proofnav.registered-signal-replay.v1"
+                or replay.get("artifact_digest") != digest
+                or not isinstance(replay.get("signals"), list)
+                or not replay["signals"]
+                or replay.get("selected_signal_digest")
+                != replay["signals"][-1].get("signal_digest")):
+            _fail("M3_REPLAY_SCHEMA", location + ".replay_resource", "invalid exact prefix")
+        admitted_observations = set()
+        for replay_signal in replay["signals"]:
+            signal_body = copy.deepcopy(replay_signal)
+            signal_digest = signal_body.pop("signal_digest", None)
+            observation = replay_signal.get("observation")
+            observation_digest = replay_signal.get("observation_digest")
+            if (signal_digest not in signal_digests[digest]
+                    or canonical_sha256(signal_body) != signal_digest
+                    or not isinstance(observation, dict)
+                    or canonical_sha256(observation) != observation_digest):
+                _fail("M3_REPLAY_SIGNAL", location + ".replay_resource", "unsealed signal/observation")
+            admitted_observations.add(observation_digest)
+        observation_digests[digest] = frozenset(admitted_observations)
     # The JSON file is convenient for review and extension, while this
     # in-code digest is the actual trust anchor.  Updating the allowlist is an
     # explicit source change, not a runtime/caller parameter.
@@ -192,13 +227,14 @@ def _load_registry():
             "M3_REGISTRY_SEAL", "$.calibration_registry",
             "registry manifest differs from the code-owned trust anchor",
         )
-    return by_digest, artifacts, signal_digests
+    return by_digest, artifacts, signal_digests, observation_digests
 
 
 (
     _REGISTERED_BY_DIGEST,
     _REGISTERED_ARTIFACTS,
     _REGISTERED_SIGNAL_DIGESTS,
+    _REGISTERED_OBSERVATION_DIGESTS,
 ) = _load_registry()
 
 
@@ -250,6 +286,25 @@ def require_registered_signal_digest(
     return signal_digest
 
 
+def is_registered_observation_digest(artifact_digest, observation_digest):
+    return observation_digest in _REGISTERED_OBSERVATION_DIGESTS.get(
+        artifact_digest, frozenset(),
+    )
+
+
+def require_registered_observation_digest(
+        artifact_digest, observation_digest,
+        location="$.observation"):
+    require_registered_calibration_artifact_digest(artifact_digest)
+    _sha256(observation_digest, location)
+    if not is_registered_observation_digest(artifact_digest, observation_digest):
+        _fail(
+            "M3_OBSERVATION_NOT_REGISTERED", location,
+            "M3-A transition is outside the sealed real episode prefix",
+        )
+    return observation_digest
+
+
 def require_registered_calibration_artifact_digest(
         digest, location="$.calibration_artifact.artifact_digest"):
     """Reject a structurally valid but untrusted/self-reported artifact."""
@@ -268,8 +323,10 @@ __all__ = [
     "REGISTRY_SCHEMA_VERSION",
     "is_registered_calibration_artifact_digest",
     "is_registered_signal_digest",
+    "is_registered_observation_digest",
     "load_registered_calibration_artifact",
     "registered_calibration_artifacts",
     "require_registered_calibration_artifact_digest",
     "require_registered_signal_digest",
+    "require_registered_observation_digest",
 ]

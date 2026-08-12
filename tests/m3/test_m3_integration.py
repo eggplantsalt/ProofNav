@@ -94,6 +94,39 @@ class M3IntegrationAttackTests(unittest.TestCase):
         self.assertEqual(report["status"], "REJECT", report)
         self.assertIn("RISK_CLAIM_MISMATCH", report["reason_codes"])
 
+    def test_forged_observation_prefix_cannot_use_registered_final_signal(self):
+        scope = real_scope(1.0)
+        template = real_template()
+        signals = real_replay_signals()
+        forged = copy.deepcopy(signals[0]["observation"])
+        forged["pose"]["position"][2] += 1000.0
+        state = M3ProofState(scope, template)
+        state.ingest_observation(forged)
+        for record in signals[1:]:
+            state.ingest_observation(record["observation"])
+        selected = signals[-1]
+        identity = selected_entity_query(state.snapshot(), selected)
+        query = state.register_query(
+            identity["hypothesis_id"], identity["obligation_id"],
+        )
+        wrapper = build_calibrated_bound_evidence(
+            query, selected, build_calibration_artifact(artifact_spec()),
+            scope["scope_contract_id"],
+        )
+        state.append_evidence(wrapper)
+        outcome = CertificateBuilder().build(state, "FOUND")
+        self.assertEqual(outcome["status"], "UNRESOLVED", outcome)
+        self.assertIn(
+            "M3_OBSERVATION_NOT_REGISTERED",
+            outcome["feedback"]["reason_codes"],
+        )
+        structure = structural_result(state.audit_bundle())
+        self.assertFalse(structure["valid"], structure)
+        self.assertIn(
+            "OFFLINE_M3_OBSERVATION_NOT_REGISTERED",
+            structure["reason_codes"],
+        )
+
     def test_unregistered_resealed_artifact_fails_adapter_state_online_offline(self):
         scope, _, signal, _, state, query, wrapper = self._chain(
             "m3-unregistered-artifact",

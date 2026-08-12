@@ -82,7 +82,7 @@ acquisition 上验证。
 
 ## 7. P1 cheapest killer 的实测处置
 
-预注册的 absolute-logit threshold 3.0 在 calibration 分区产生 20 次 SUPPORT 机会，其中
+预注册的 absolute-logit threshold 3.0 在最终 active-only calibration 分区产生 13 次 SUPPORT 机会，其中
 2 次是 false support，分布于 2/6 scans。aggregate artifact 因而只能携带 `1/3` 描述性
 scan-familywise bound，而不是 formal statistical guarantee。
 

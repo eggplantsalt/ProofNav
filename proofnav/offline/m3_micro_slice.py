@@ -22,6 +22,7 @@ import json
 import os
 
 from proofnav.contracts import SCHEMA_VERSIONS, canonical_sha256
+from proofnav.adapters import derive_runtime_episode_id
 from proofnav.offline.calibration_builder import build_scan_familywise_artifact
 from proofnav.offline.oracle_evidence import (
     seal_controlled_artifact,
@@ -148,11 +149,12 @@ def _annotation_index(path):
         raise ValueError("annotation file must contain a non-empty list")
     index = {}
     for item in annotations:
-        base_id = str(item["id"])
         obj_id = str(item["objId"])
         instructions = item["instructions"]
-        for instruction_index, instruction in enumerate(instructions):
-            episode_id = "%s_%d" % (base_id, instruction_index)
+        for instruction in instructions:
+            episode_id = derive_runtime_episode_id(
+                item["scan"], item["path"][0], instruction,
+            )
             if episode_id in index:
                 raise ValueError("duplicate annotation episode %s" % episode_id)
             index[episode_id] = {

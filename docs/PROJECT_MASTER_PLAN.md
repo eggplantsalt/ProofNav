@@ -460,7 +460,7 @@ authority；`M3ProofState/M3OnlineVerifier` 不接受 caller risk，certificate 
 SUPPORT atoms 按 strict familywise union 重算。所有接线默认关闭，不影响 legacy DUET/M2.1。
 
 **真实 micro 结果：** 预注册 `val_train_seen`、seed 0、4 batches×8、scan-hash 分区与
-absolute-logit threshold 3.0；240 条信号中 calibration 分区为 6 scans/66 observations
+absolute-logit threshold 3.0；193 条 opaque-lineage active 信号中 calibration 分区为 6 scans/54 observations
 （包含 10 个 null selection），2 scans 出现 false support，因而注册 artifact 的描述性
 scan-familywise bound 为 `1/3`，无 confidence guarantee。一条由 signal-only canonical
 rule 选的真实记录在诊断预算 1.0 下通过 builder→online verifier→terminal→offline

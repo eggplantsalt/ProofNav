@@ -4,7 +4,7 @@ These functions copy primitive metadata only.  They do not retain the original
 observation, simulator, environment, tensors, logits, or evaluator objects.
 """
 
-from .contracts import SCHEMA_VERSIONS
+from .contracts import SCHEMA_VERSIONS, canonical_sha256
 from .validation import validate_action, validate_observation
 
 
@@ -22,7 +22,23 @@ def _shape_dtype(value):
     }
 
 
-def sanitize_duet_observation(raw, event_id, event_seq, step):
+def derive_runtime_episode_id(scan, start_viewpoint, instruction):
+    """Derive an opaque, agent-visible episode key without evaluator IDs.
+
+    REVERIE's raw ``instr_id`` embeds ``objId``.  Hashing that identifier is
+    still dictionary-reversible, so the successor key uses only values that
+    are already visible to the running agent at episode start.
+    """
+
+    return "runtime-episode-" + canonical_sha256({
+        "scan": str(scan),
+        "start_viewpoint": str(start_viewpoint),
+        "instruction": str(instruction),
+    })[:32]
+
+
+def sanitize_duet_observation(
+        raw, event_id, event_seq, step, runtime_episode_id=None):
     """Copy the DUET observation allowlist and discard all GT-bearing fields."""
 
     candidates = []
@@ -40,7 +56,10 @@ def sanitize_duet_observation(raw, event_id, event_seq, step):
     value = {
         "schema_version": SCHEMA_VERSIONS["observation"],
         "event_id": str(event_id),
-        "episode_id": str(raw["instr_id"]),
+        "episode_id": str(
+            raw["instr_id"] if runtime_episode_id is None
+            else runtime_episode_id
+        ),
         "event_seq": int(event_seq),
         "step": int(step),
         "source": "observation",

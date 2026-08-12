@@ -61,5 +61,7 @@ step仍是因果有效观察，已结束batch row的冻结viewpoint后缀不会�
 | 1 | calibration | 6 | 54 | 10 | 13 |
 | 2 | demonstration | 8 | 72 | 23 | 12 |
 
-partition 2 中用 signal-only canonical ordering 选中 `2401_51_0/event_seq=4`；事后 offline
+partition 2 中用 signal-only canonical ordering 选中
+`runtime-episode-3e91a522140d42cf2330e1be2e530f5d/event_seq=4`；该 opaque ID 不含 raw
+`instr_id/objId`。事后 offline
 truth 确认 selected slot `51` 与 target `51` 一致。该正例用于证明管道，不用于阈值或方法选择。

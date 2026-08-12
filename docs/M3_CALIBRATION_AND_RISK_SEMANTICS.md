@@ -73,7 +73,7 @@ dependency group均被拒绝。
 M3-A production registry 只授权一个真实 aggregate artifact：
 
 ```text
-artifact digest  d2548e03e38c24423f846c372d66ed0abd1dc78b672bf9f6c965566d699f830f
+artifact digest  11caf45003b2d3f7fb5d3624f75e8b3ca964a5757a72728235e0f19d3bd58370
 threshold        selected absolute object logit >= 3.0
 calibration      6 scans / 54 active observations / 2 error scans
 null outputs     10 (retained as no-SUPPORT opportunities)
@@ -96,6 +96,8 @@ Production成功链因此只接受这个fixed recorded micro replay里的exact s
 
 这不是live inference的通用authority，也不是密码学硬件attestation。要让未来新在线signal获得
 production authority，仍需受信in-process capability或外部签名/attestation与独立资源验证。当前claim
+canonical demo 的五条 observation prefix 也由 replay seal 绑定；builder、online verifier 与独立 offline
+audit 都拒绝未注册 prefix。运行时 episode/event lineage 使用不含 evaluator ID 的 opaque key。Claim仍
 严格限于fixed recorded micro replay和descriptive compatibility，不能外推为新episode、unseen scan或
 任意live process的统计保证。
 

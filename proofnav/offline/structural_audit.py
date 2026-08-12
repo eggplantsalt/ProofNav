@@ -11,6 +11,7 @@ import math
 
 from proofnav.calibration.registry import (
     is_registered_calibration_artifact_digest,
+    is_registered_observation_digest,
     is_registered_signal_digest,
 )
 from proofnav.contracts import ContractViolation, SCHEMA_VERSIONS, canonical_json, canonical_sha256
@@ -1173,6 +1174,18 @@ def recompute_offline_state(base_bundle, _validate_continues=True):
         event_type = transition["event_type"]
         payload = transition["payload"]
         if event_type == "OBSERVATION":
+            if profile["evidence_mode"] == "m3_entity_support":
+                prefix = "proofnav.calibration-artifact.v1:"
+                version = scope.get("calibration_version", "")
+                if (not version.startswith(prefix)
+                        or not is_registered_observation_digest(
+                            version[len(prefix):], canonical_sha256(payload),
+                        )):
+                    _fail(
+                        "OFFLINE_M3_OBSERVATION_NOT_REGISTERED",
+                        "$.observation",
+                        "transition is outside the sealed real prefix",
+                    )
             observations.append(copy.deepcopy(payload))
             _topology(scope, observations, profile)
         elif event_type == "IDENTITY_LINK":

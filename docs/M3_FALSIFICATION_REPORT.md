@@ -2,14 +2,22 @@
 
 > 冻结时间：2026-08-13（UTC）  
 > 检索边界：截至冻结日可访问的 primary papers 与 official artifacts  
-> 阶段结论：**M3-A mechanical contracts = PASS；active-row causality = PASS；semantic no-GT authority = BLOCKED；scientific novelty/spend gate = REVISE**  
+> 阶段结论：**M3-A fixed-slice engineering = PASS；semantic-ID/prefix P0 = REPAIRED；scientific novelty/spend gate = REVISE**
 > 后续权限：只允许 M3-B cheapest-killer 工作；不授权正式 benchmark、大模型下载、GPU 训练或 M4
 
 ## 0. Executive verdict
 
-M3-A contract tests 已经证明一件有限的工程事实：一个 nested DUET signal 可以经过 code-owned aggregate
+M3-A 最终证明了一件有限的工程事实：一个真实 nested DUET signal 可以经过 code-owned aggregate
 artifact、typed adapter、derived risk atom、certificate builder、online verifier 与 terminal audit，形成一个
-可重放、可篡改检测、默认 fail-closed 的最小 entity `SUPPORTS/ABSTAIN` 链。它们没有证明输入在语义上无 GT。
+可重放、可篡改检测、默认 fail-closed 的最小 entity `SUPPORTS/ABSTAIN` 链。
+
+终审发现并修复了两项后置 P0：REVERIE raw `instr_id=pathId_objId_instrIdx` 的 semantic alias 已由
+`(scan,start_viewpoint,instruction)` 派生的 opaque runtime identity 替代，offline annotation 通过同一
+agent-visible tuple 独立 join；registry 又新增 canonical demo 五条 observation prefix seal，builder、online
+verifier 与独立 offline audit 均拒绝伪造 prefix。最终 authority identities 是：signal JSONL
+`43874168338d349e90c4111a21829552f68cfe4c33ba28240a832054b42c03bd`，artifact
+`11caf45003b2d3f7fb5d3624f75e8b3ca964a5757a72728235e0f19d3bd58370`。下文关于旧
+target-bearing `d254…` authority 的段落仅保留为 red-team 历史，不代表最终状态。
 
 这**不是**论文 novelty 结论，也不是有效的统计风险结果。终审发现旧 signal hook 把 batch 中已经结束的
 episode rows 继续写入 JSONL，违反“每条 signal 必须对应 active agent-visible decision event”的因果 admission
@@ -108,12 +116,12 @@ representation/method claim 必须撤回；schema 与变量增加不能构成 ex
 
 | 项目 | 当前冻结状态 | 可支持的结论 | 不可支持的结论 |
 |---|---|---|---|
-| real hook | **causal diagnostic frozen**：193 signals / 32 episodes；signal SHA-256 `61eec2760687ff0b6691e01ce4929fee9abdf265add4037b9c497ada145ef747` | signal 与 prediction trajectory 逐 episode 精确匹配；0 repeated suffix | 每条 signal 的 `episode_id` 仍语义泄漏 target object ID，因此不是 no-GT authority |
+| real hook | **opaque active-only frozen**：193 signals / 32 episodes；signal SHA-256 `43874168338d349e90c4111a21829552f68cfe4c33ba28240a832054b42c03bd` | signal 与 prediction trajectory 逐 episode 精确匹配；0 repeated suffix；runtime ID 不含 raw evaluator ID | 不是 live producer attestation |
 | causal audit | episode lengths `{4: 2, 5: 10, 6: 8, 7: 9, 8: 3}`；partition records P0/P1/P2 = `67/54/72` | 每个 signal 是一次 active policy-visible model event；总数与 length histogram 一致 | 不证明 score 准确或 statistical validity |
 | calibration | **causally corrected descriptive diagnostic**：P1 = 6 scans / 54 examples，含 10 null / 2 error scans；bound `2/6 = 1/3`，`confidence=null` | active-only scan-familywise aggregation 的 exact descriptive result | 不是 held-out、conformal、finite-confidence 或 no-GT runtime guarantee |
-| artifact/registry | artifact digest `d2548e03e38c24423f846c372d66ed0abd1dc78b672bf9f6c965566d699f830f`；file SHA-256 `80f745393054e75a6850d49b8a2764b5b74cc52e48b2ec06cca2c0d7c15b38bb`；72 selected-signal digests | exact artifact/resource seal 与 selected-evidence signal membership mechanics 可测试 | **authority revoked**：signal 含 target-ID alias，且 preceding observation prefix 可由 caller 伪造；不是 exact full replay |
-| demonstration | `1LXtFkjw3qL / 2401_51_0 / event_seq 4 / slot 51 / score 5.40303897857666`；signal digest `4b41f5f79d866ec0b0367580484f2aa08ab9a9586dcc37d200caed20a1e1efe9` | canonical row 在 corrected active stream 中可重放 | `episode_id` 中间 token 与 target slot 同为 `51`，直接暴露 semantic alias；不能作为 truth-independent selector 证据 |
-| budget diagnostics | mechanical selected-signal replay：budget 1 → CERTIFICATE/ACCEPT_FOUND/formal `TRUE_ACCEPT`；budget `.05` → `UNRESOLVED`/`RISK_BUDGET_EXCEEDED`/`FINALIZE_UNRESOLVED`，formal Oracle `UNRESOLVED` | wrapper→state→certificate→verifier→terminal→offline machinery 可执行 | signal 含 semantic alias且 prefix未认证；这些不是有效 no-GT outcomes；`CORRECT_ABSTAIN` 只是 runner mechanical safety interpretation，不是 Oracle taxonomy outcome |
+| artifact/registry | artifact digest `11caf45003b2d3f7fb5d3624f75e8b3ca964a5757a72728235e0f19d3bd58370`；72 signal digests + exact five-observation replay seal | artifact、selected signal、full relevant prefix 均可独立重算；伪造 prefix fail closed | 仍不是 checkpoint→logit attestation |
+| demonstration | `1LXtFkjw3qL / runtime-episode-3e91a522140d42cf2330e1be2e530f5d / event_seq 4 / slot 51 / score 5.40303897857666`；signal `5730b8a877cbff8ff14d3a59c0257b620b9414be8d60d53955800d03f848a441` | selector key只来自agent-visible tuple；offline truth在terminal后进入 | 单正例不证明性能或统计保证 |
+| budget diagnostics | budget 1 → CERTIFICATE/ACCEPT_FOUND/formal `TRUE_ACCEPT`；budget `.05` → `UNRESOLVED/RISK_BUDGET_EXCEEDED`，formal Oracle `UNRESOLVED` | fixed-slice non-Oracle runtime chain 可执行 | budget 1 是 vacuous mechanical diagnostic；`.05`无coverage |
 | capability | entity SUPPORT-only schema 仍冻结 | adapter surface 不受 numeric refreeze 影响 | REFUTE、residual、identity、attribute、relation、room 仍未开放 |
 
 P0 的因果链是：batched episodes 在不同 step 结束；旧 hook 对整个 batch 无条件 emit；ended rows 被后续 step

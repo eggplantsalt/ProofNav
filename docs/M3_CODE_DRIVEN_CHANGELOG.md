@@ -1,5 +1,17 @@
 # ProofNav M3-A code-driven changelog
 
+> **Final P0R supersession (2026-08-13):** Earlier active-only identities below (`61eec…`,
+> `d254…`, raw `2401_51_0`) are retained only as red-team history. The final hook replaces
+> target-bearing REVERIE `instr_id` with `runtime-episode-<SHA256(scan,start,instruction)>`,
+> and the registry seals the five-observation demo prefix in addition to its signal.
+> Final identities: signal JSONL `43874168338d349e90c4111a21829552f68cfe4c33ba28240a832054b42c03bd`,
+> artifact `11caf45003b2d3f7fb5d3624f75e8b3ca964a5757a72728235e0f19d3bd58370`,
+> demo signal `5730b8a877cbff8ff14d3a59c0257b620b9414be8d60d53955800d03f848a441`,
+> opaque episode `runtime-episode-3e91a522140d42cf2330e1be2e530f5d`.
+> A forged-prefix regression now returns `M3_OBSERVATION_NOT_REGISTERED` online and
+> `OFFLINE_M3_OBSERVATION_NOT_REGISTERED` independently. Counts and scientific verdict
+> remain 193 active signals, 6/54/2 calibration, descriptive `1/3`, strict `.05 UNRESOLVED`.
+
 > 冻结时间：2026-08-13（UTC）  
 > 范围：M3-A contracts、default-off DUET signal seam、aggregate calibration、entity SUPPORT/ABSTAIN、
 > derived certificate risk、显式 runtime successor、独立 offline audit 与真实 micro diagnostic  

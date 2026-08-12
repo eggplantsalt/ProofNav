@@ -70,20 +70,21 @@ artifact只产生 entity SUPPORT/ABSTAIN。若“non-oracle”要求proposal loc
 
 ## 7. 实测 signal extraction 与能力结果
 
-2026-08-13 在预注册的 `val_train_seen`、seed 0、4 batches×8 上运行一次默认关闭的
-extractor，得到 240 条 records、32 episodes、21 scans。JSONL 大小 1,016,866 bytes，
-SHA-256 为
-`47b45e356a258060ebe822dca35c72994c786488a312999e812ba8b0bf252dd2`。每条记录都绑定：
+2026-08-13 在预注册的 `val_train_seen`、seed 0、4 batches×8 上运行默认关闭的 extractor；终审先修复
+ended-batch 重复发射，再将含 `objId` 的 REVERIE `instr_id` 替换为仅由
+`(scan,start_viewpoint,instruction)` 派生的 opaque runtime episode key。最终得到 193 条 active records、
+32 episodes、21 scans，JSONL SHA-256 为
+`43874168338d349e90c4111a21829552f68cfe4c33ba28240a832054b42c03bd`。每条记录都绑定：
 
 - ordered slot IDs、full finite object logits 与 boolean valid mask；
 - 实际送入模型的 panorama/object/angle/box/instruction post-cast content digest；
 - checkpoint/model/feature/interface/config/tokenizer identity；
 - 当前 sanitized observation、instruction 和 code-owned entity template。
 
-57/240 observations 没有有效 slot（development/calibration/demonstration 分区分别为 24/10/23），全部
+57/193 observations 没有有效 slot（development/calibration/demonstration 分区分别为 24/10/23），全部
 保持 null selection 并 ABSTAIN，没有被当作负证或从 calibration denominator 中删除。
 
-阈值 3.0 的 calibration 分区有 20 次 SUPPORT 机会，其中 2 次为 false support，且分布在
+阈值 3.0 的 calibration 分区有 13 次 SUPPORT 机会，其中 2 次为 false support，且分布在
 2/6 scans；这直接否定了“frozen absolute logit 在常用 `alpha_F=0.05` 下足够”。
 因此 capability matrix 的最终 M3-A 结论是：
 

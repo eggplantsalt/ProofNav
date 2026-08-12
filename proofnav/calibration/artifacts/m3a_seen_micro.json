@@ -4,7 +4,7 @@
     "examples": 54,
     "scans": 6
   },
-  "artifact_digest": "d2548e03e38c24423f846c372d66ed0abd1dc78b672bf9f6c965566d699f830f",
+  "artifact_digest": "11caf45003b2d3f7fb5d3624f75e8b3ca964a5757a72728235e0f19d3bd58370",
   "calibration_method": "fixed_threshold_descriptive_micro",
   "calibration_parameters": {
     "support_threshold": 3.0
@@ -12,7 +12,7 @@
   "dependency_unit": "source_observation_lineage",
   "evidence_family": "duet_annotated_slot_entity_grounding",
   "generation": {
-    "command": "python -m proofnav.offline.m3_micro_slice --signal-file .m3-results/signals/val_train_seen_active.jsonl --annotation-file datasets/REVERIE/annotations/REVERIE_val_train_seen_enc.json --output-dir .m3-results/m3a_micro_slice_active",
+    "command": "python -m proofnav.offline.m3_micro_slice --signal-file .m3-results/signals/val_train_seen_opaque.jsonl --annotation-file datasets/REVERIE/annotations/REVERIE_val_train_seen_enc.json --output-dir .m3-results/m3a_micro_slice_opaque",
     "producer": "proofnav.calibration.artifact.build_calibration_artifact",
     "source_revision": "working-tree-after-465b9d4d48125f0c3c063065776886c6916bd52f"
   },
@@ -21,7 +21,7 @@
     "checkpoint_digest": "c74aad4b4c330785c945844ba6a30490962623e938843477e0d062459a9918dc",
     "config_digest": "0dcbeb53b2fd7c44d79f903fd1df3a2c9aada7a77c07ba982d108ceaa10df780",
     "feature_digest": "6246c6d17401bfacfd0e91ddeab71df9592b9193bd12af22db8f69677509ccc5",
-    "interface_digest": "dd62c54efd9456b25273622af865bd396b5460b538221f5840c12c8902ec34b1",
+    "interface_digest": "9f15f40b80c533958b60b2f422654c8dfa9736201d8a8f0904f0c255b267a5e7",
     "model_digest": "5ed16b0e2b2af6182f4ec60039f48015b9e545647fb459f091ba6e1698297d17",
     "tokenizer_digest": "07cd6281d985191602d9c3dab43a6562a973e82a27e90d34137a175e8f189106"
   },

@@ -55,7 +55,9 @@ class GMapObjectNavAgent(Seq2SeqAgent):
         """
 
         try:
-            from proofnav.adapters import sanitize_duet_observation
+            from proofnav.adapters import (
+                derive_runtime_episode_id, sanitize_duet_observation,
+            )
             from proofnav.contracts import canonical_sha256
             from proofnav.perception.duet_signal import DuetSignalSink
             from proofnav.perception.entity_template import build_entity_proof_template
@@ -67,12 +69,15 @@ class GMapObjectNavAgent(Seq2SeqAgent):
             )))
             if project_root not in sys.path:
                 sys.path.insert(0, project_root)
-            from proofnav.adapters import sanitize_duet_observation
+            from proofnav.adapters import (
+                derive_runtime_episode_id, sanitize_duet_observation,
+            )
             from proofnav.contracts import canonical_sha256
             from proofnav.perception.duet_signal import DuetSignalSink
             from proofnav.perception.entity_template import build_entity_proof_template
         return (
-            sanitize_duet_observation, DuetSignalSink,
+            sanitize_duet_observation, derive_runtime_episode_id,
+            DuetSignalSink,
             build_entity_proof_template, canonical_sha256,
         )
 
@@ -104,22 +109,23 @@ class GMapObjectNavAgent(Seq2SeqAgent):
             'tokenizer_digest': getattr(
                 self.args, 'proofnav_signal_tokenizer_digest', None),
         }
-        (sanitizer, sink_class, template_builder,
+        (sanitizer, episode_id_builder, sink_class, template_builder,
          canonical_hasher) = self._load_proofnav_signal_boundary()
         self._proofnav_signal_sanitizer = sanitizer
+        self._proofnav_episode_id_builder = episode_id_builder
         self._proofnav_signal_template_builder = template_builder
         self._proofnav_canonical_sha256 = canonical_hasher
         self.proofnav_signal = sink_class(path, model_identity)
 
     def _emit_proofnav_signals(
         self, obs, step, nav_outs, nav_inputs, pano_inputs, language_inputs,
-        active_mask,
+        active_mask, runtime_episode_ids,
     ):
         """Copy only agent-visible values available at the real model seam."""
 
         if self.proofnav_signal is None:
             return
-        if len(active_mask) != len(obs):
+        if len(active_mask) != len(obs) or len(runtime_episode_ids) != len(obs):
             raise ValueError('ProofNav signal active mask must match batch size')
         for batch_index, ob in enumerate(obs):
             # ``ended`` is updated after this model call.  Therefore the
@@ -129,9 +135,11 @@ class GMapObjectNavAgent(Seq2SeqAgent):
                 continue
             observation = self._proofnav_signal_sanitizer(
                 ob,
-                event_id='duet-signal:%s:%d' % (str(ob['instr_id']), int(step)),
+                event_id='duet-signal:%s:%d' % (
+                    runtime_episode_ids[batch_index], int(step)),
                 event_seq=int(step),
                 step=int(step),
+                runtime_episode_id=runtime_episode_ids[batch_index],
             )
             template = self._proofnav_signal_template_builder(
                 observation['instruction']
@@ -452,6 +460,12 @@ class GMapObjectNavAgent(Seq2SeqAgent):
             'pred_objid': None,
             'details': {},
         } for ob in obs]
+        proofnav_episode_ids = [
+            self._proofnav_episode_id_builder(
+                ob['scan'], ob['viewpoint'], ob['instruction'],
+            ) if self.proofnav_signal is not None else None
+            for ob in obs
+        ]
 
         # Language input: txt_ids, txt_masks
         language_inputs = self._language_variable(obs)
@@ -507,6 +521,7 @@ class GMapObjectNavAgent(Seq2SeqAgent):
                 self._emit_proofnav_signals(
                     obs, t, nav_outs, nav_inputs, pano_inputs, language_inputs,
                     active_mask=np.logical_not(ended),
+                    runtime_episode_ids=proofnav_episode_ids,
                 )
 
             if self.runtime_trace is not None:

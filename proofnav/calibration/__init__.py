@@ -9,10 +9,12 @@ from .artifact import (
 from .registry import (
     REGISTRY_MANIFEST_DIGEST,
     is_registered_calibration_artifact_digest,
+    is_registered_observation_digest,
     is_registered_signal_digest,
     load_registered_calibration_artifact,
     registered_calibration_artifacts,
     require_registered_calibration_artifact_digest,
+    require_registered_observation_digest,
     require_registered_signal_digest,
 )
 from .risk import (
@@ -28,10 +30,12 @@ __all__ = [
     "build_calibration_artifact",
     "compose_certificate_risk",
     "is_registered_calibration_artifact_digest",
+    "is_registered_observation_digest",
     "is_registered_signal_digest",
     "load_registered_calibration_artifact",
     "registered_calibration_artifacts",
     "require_registered_calibration_artifact_digest",
+    "require_registered_observation_digest",
     "require_registered_signal_digest",
     "validate_calibration_artifact",
     "validate_registered_calibration_artifact",

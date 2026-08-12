@@ -2,11 +2,13 @@
   "schema_version": "proofnav.calibration-registry.v1",
   "entries": [
     {
-      "artifact_digest": "d2548e03e38c24423f846c372d66ed0abd1dc78b672bf9f6c965566d699f830f",
+      "artifact_digest": "11caf45003b2d3f7fb5d3624f75e8b3ca964a5757a72728235e0f19d3bd58370",
       "artifact_resource": "artifacts/m3a_seen_micro.json",
       "purpose": "real-descriptive-seen-scan-m3a-micro",
-      "signal_manifest_digest": "f918091f8aec58bff8ba566bae0fe9d8b21f8333ff96f24bb65a957e6de81d2e",
+      "signal_manifest_digest": "a22e78dd24570c24924b63e7bc66fa2ef9b8166eb7cbd4544ba8dc0df381d208",
       "signal_manifest_resource": "artifacts/m3a_seen_micro_signals.json",
+      "replay_digest": "ed63a6274e0ac8e42530b21c770f486fdb5a573c90f97b4c04199d3632264598",
+      "replay_resource": "artifacts/m3a_seen_micro_replay.json",
       "source_revision": "working-tree-after-465b9d4d48125f0c3c063065776886c6916bd52f"
     }
   ]

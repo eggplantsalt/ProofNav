@@ -190,6 +190,20 @@ def _canonical_view(source, allow_controlled=False, allow_m3=False):
     snapshot = recompute_view(
         base, allow_controlled=allow_controlled, allow_m3=allow_m3,
     )
+    if allow_m3:
+        from proofnav.calibration.registry import (  # pylint: disable=import-outside-toplevel
+            is_registered_observation_digest,
+        )
+        prefix = "proofnav.calibration-artifact.v1:"
+        version = scope.get("calibration_version", "")
+        artifact_digest = version[len(prefix):] if version.startswith(prefix) else ""
+        if (not artifact_digest or any(
+                transition["event_type"] == "OBSERVATION"
+                and not is_registered_observation_digest(
+                    artifact_digest, canonical_sha256(transition["payload"]),
+                )
+                for transition in base["transitions"])):
+            reasons.append("M3_OBSERVATION_PREFIX_NOT_REGISTERED")
     if bundle["state"] != snapshot:
         reasons.append("AUDIT_STATE_MISMATCH")
     return bundle, snapshot, reasons

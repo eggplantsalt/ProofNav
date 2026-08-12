@@ -1,0 +1,12 @@
+diff --git a/src/lib/NavGraph.cpp b/src/lib/NavGraph.cpp
+--- a/src/lib/NavGraph.cpp
++++ b/src/lib/NavGraph.cpp
+@@
+-        cv::Mat depth = cv::imread(skyboxDir + viewpointId + "_skybox_depth_small.png", CV_LOAD_IMAGE_ANYDEPTH);
++        cv::Mat depth = cv::imread(skyboxDir + viewpointId + "_skybox_depth_small.png", cv::IMREAD_ANYDEPTH);
+diff --git a/src/test/main.cpp b/src/test/main.cpp
+--- a/src/test/main.cpp
++++ b/src/test/main.cpp
+@@
+-            double err = cv::norm(reference_image, state->rgb, CV_L2);
++            double err = cv::norm(reference_image, state->rgb, cv::NORM_L2);

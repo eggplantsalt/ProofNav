@@ -22,6 +22,7 @@ from .agent_base import Seq2SeqAgent
 from models.graph_utils import GraphMap
 from models.model import VLNBert, Critic
 from models.ops import pad_tensors_wgrad
+from .runtime_trace import RuntimeTraceSink
 
 
 class GMapObjectNavAgent(Seq2SeqAgent):
@@ -31,6 +32,17 @@ class GMapObjectNavAgent(Seq2SeqAgent):
         self.critic = Critic(self.args).cuda()
         # buffer
         self.scanvp_cands = {}
+        self.runtime_trace = None
+
+    def set_runtime_trace(self, path=None):
+        if self.runtime_trace is not None:
+            self.runtime_trace.close()
+            self.runtime_trace = None
+        if path is not None:
+            self.runtime_trace = RuntimeTraceSink(
+                path, self.args.fusion,
+                max_episodes=self.args.runtime_trace_max_episodes,
+            )
 
     def _language_variable(self, obs):
         seq_lengths = [len(ob['instr_encoding']) for ob in obs]
@@ -295,6 +307,8 @@ class GMapObjectNavAgent(Seq2SeqAgent):
         else:
             obs = self.env._get_obs()
         self._update_scanvp_cands(obs)
+        if self.runtime_trace is not None:
+            self.runtime_trace.begin_batch(obs)
 
         batch_size = len(obs)
         # build graph: keep the start viewpoint
@@ -359,6 +373,12 @@ class GMapObjectNavAgent(Seq2SeqAgent):
                 'txt_masks': language_inputs['txt_masks'],
             })
             nav_outs = self.vln_bert('navigation', nav_inputs)
+
+            if self.runtime_trace is not None:
+                for i, gmap in enumerate(gmaps):
+                    self.runtime_trace.model_scores(
+                        i, t, nav_outs, nav_inputs, pano_inputs, gmap
+                    )
 
             if self.args.fusion == 'local':
                 nav_logits = nav_outs['local_logits']
@@ -451,6 +471,27 @@ class GMapObjectNavAgent(Seq2SeqAgent):
                 else:
                     cpu_a_t.append(nav_vpids[i][a_t[i]])   
 
+                if self.runtime_trace is not None:
+                    selected_index = int(a_t[i].item())
+                    selected_action = nav_vpids[i][selected_index]
+                    self.runtime_trace.action(
+                        i, t, selected_index, selected_action
+                    )
+                    self.runtime_trace.termination(i, t, {
+                        'duet_stop': bool(a_t_stop[i]),
+                        'no_frontier': bool(nav_inputs['no_vp_left'][i]),
+                        'max_step': bool(t == self.args.max_action_len - 1),
+                        'episode_already_done': bool(ended[i]),
+                    }, environment_action_is_none=cpu_a_t[-1] is None)
+                    if cpu_a_t[-1] is not None:
+                        expanded_path = gmaps[i].graph.path(
+                            obs[i]['viewpoint'], cpu_a_t[-1]
+                        )
+                        self.runtime_trace.execution(
+                            i, t, obs[i]['viewpoint'], cpu_a_t[-1],
+                            expanded_path,
+                        )
+
             # Make action and get the new state
             self.make_equiv_action(cpu_a_t, gmaps, obs, traj)
             for i in range(batch_size):
@@ -474,6 +515,8 @@ class GMapObjectNavAgent(Seq2SeqAgent):
             # new observation and update graph
             obs = self.env._get_obs()
             self._update_scanvp_cands(obs)
+            if self.runtime_trace is not None:
+                self.runtime_trace.next_observations(obs, t + 1)
             for i, ob in enumerate(obs):
                 if not ended[i]:
                     gmaps[i].update_graph(ob)
@@ -491,5 +534,8 @@ class GMapObjectNavAgent(Seq2SeqAgent):
             self.loss += og_loss
             self.logs['IL_loss'].append(ml_loss.item())
             self.logs['OG_loss'].append(og_loss.item())
+
+        if self.runtime_trace is not None:
+            self.runtime_trace.predictions(traj)
 
         return traj

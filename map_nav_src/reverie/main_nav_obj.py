@@ -66,10 +66,16 @@ def build_dataset(args, rank=0):
         )
 
     # val_env_names = ['val_train_seen']
-    val_env_names = ['val_train_seen', 'val_seen', 'val_unseen']
-
-    if args.submit:
-        val_env_names.append('test')
+    if args.m0_eval_splits is not None:
+        allowed_splits = {'val_train_seen', 'val_seen', 'val_unseen', 'test'}
+        unknown_splits = set(args.m0_eval_splits) - allowed_splits
+        if unknown_splits:
+            raise ValueError('Unknown M0 evaluation splits: %s' % sorted(unknown_splits))
+        val_env_names = args.m0_eval_splits
+    else:
+        val_env_names = ['val_train_seen', 'val_seen', 'val_unseen']
+        if args.submit:
+            val_env_names.append('test')
         
     val_envs = {}
     for split in val_env_names:
@@ -236,6 +242,7 @@ def valid(args, train_env, val_envs, rank=-1):
         record_file = os.path.join(args.log_dir, 'valid.txt')
         write_to_record_file(str(args) + '\n\n', record_file)
 
+    offline_metrics = {}
     for env_name, env in val_envs.items():
         prefix = 'submit' if args.detailed_output is False else 'detail'
         output_file = os.path.join(args.pred_dir, "%s_%s_%s.json" % (
@@ -245,10 +252,28 @@ def valid(args, train_env, val_envs, rank=-1):
         agent.logs = defaultdict(list)
         agent.env = env
 
-        iters = None
+        iters = args.m0_eval_iters
         start_time = time.time()
-        agent.test(
-            use_dropout=False, feedback='argmax', iters=iters)
+        trace_path = None
+        if args.runtime_trace_file is not None:
+            if '{split}' in args.runtime_trace_file:
+                trace_path = args.runtime_trace_file.format(split=env_name)
+            elif len(val_envs) == 1:
+                trace_path = args.runtime_trace_file
+            else:
+                stem, ext = os.path.splitext(args.runtime_trace_file)
+                trace_path = '%s_%s%s' % (stem, env_name, ext)
+            os.makedirs(os.path.dirname(os.path.abspath(trace_path)), exist_ok=True)
+            if (args.offline_metrics_file is not None and
+                    os.path.abspath(trace_path) == os.path.abspath(args.offline_metrics_file)):
+                raise ValueError('runtime trace and offline metrics must be separate files')
+            agent.set_runtime_trace(trace_path)
+        try:
+            agent.test(
+                use_dropout=False, feedback='argmax', iters=iters)
+        finally:
+            if trace_path is not None:
+                agent.set_runtime_trace(None)
         print(env_name, 'cost time: %.2fs' % (time.time() - start_time))
         preds = agent.get_results(detailed_output=args.detailed_output)
         preds = merge_dist_results(all_gather(preds))
@@ -259,6 +284,9 @@ def valid(args, train_env, val_envs, rank=-1):
                 loss_str = "Env name: %s" % env_name
                 for metric, val in score_summary.items():
                     loss_str += ', %s: %.2f' % (metric, val)
+                offline_metrics[env_name] = {
+                    metric: float(val) for metric, val in score_summary.items()
+                }
                 write_to_record_file(loss_str+'\n', record_file)
 
             if args.submit:
@@ -266,6 +294,14 @@ def valid(args, train_env, val_envs, rank=-1):
                     preds, open(output_file, 'w'),
                     sort_keys=True, indent=4, separators=(',', ': ')
                 )
+
+    if default_gpu and args.offline_metrics_file is not None:
+        os.makedirs(
+            os.path.dirname(os.path.abspath(args.offline_metrics_file)),
+            exist_ok=True,
+        )
+        with open(args.offline_metrics_file, 'w') as outf:
+            json.dump(offline_metrics, outf, sort_keys=True, indent=2)
                 
 
 

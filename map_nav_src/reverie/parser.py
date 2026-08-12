@@ -73,6 +73,13 @@ def parse_args():
     parser.add_argument('--no_backtrack', action='store_true', default=False)
     parser.add_argument('--detailed_output', action='store_true', default=False)
 
+    # M0 compatibility and runtime-interface audit controls. All are default-off.
+    parser.add_argument('--runtime_trace_file', type=str, default=None)
+    parser.add_argument('--runtime_trace_max_episodes', type=int, default=1)
+    parser.add_argument('--offline_metrics_file', type=str, default=None)
+    parser.add_argument('--m0_eval_iters', type=int, default=None)
+    parser.add_argument('--m0_eval_splits', nargs='+', default=None)
+
     # Training Configurations
     parser.add_argument(
         '--optim', type=str, default='rms',
@@ -140,4 +147,3 @@ def postprocess_args(args):
     os.makedirs(args.pred_dir, exist_ok=True)
 
     return args
-

@@ -1,5 +1,13 @@
 # ProofNav M3-A falsification report and scientific gate
 
+> **Final statistical supersession:** the structural replay remains valid, but
+> the former budget-1 `TRUE_ACCEPT` is revoked. Descriptive `2/6` never
+> authorizes a certificate; both budgets now return
+> `M3_NO_STATISTICAL_GUARANTEE → UNRESOLVED`. See
+> [M3A_FINAL_FREEZE.md](M3A_FINAL_FREEZE.md) and
+> [M3B_CHAMPION_REPORT.md](M3B_CHAMPION_REPORT.md). Historical text below is
+> retained as the falsification trail, not current authority.
+
 > 冻结时间：2026-08-13（UTC）  
 > 检索边界：截至冻结日可访问的 primary papers 与 official artifacts  
 > 阶段结论：**M3-A fixed-slice engineering = PASS；semantic-ID/prefix P0 = REPAIRED；scientific novelty/spend gate = REVISE**
@@ -27,7 +35,8 @@ episode rows 继续写入 JSONL，违反“每条 signal 必须对应 active age
 修复后的 active-only extraction 已单独重跑并完成 trajectory audit：193 signals / 32 episodes 与预测轨迹逐条
 精确对应，没有 repeated suffix。由该文件重新构建的 P1 calibration 是 6 scans / 54 examples（含 10 个 null
 selections）/ 2 error scans，descriptive familywise bound 仍为 `1/3`，没有 confidence guarantee。新 artifact
-digest 为 `d2548e03e38c24423f846c372d66ed0abd1dc78b672bf9f6c965566d699f830f`。这些 corrected facts 已冻结；
+digest 为 `d2548e03e38c24423f846c372d66ed0abd1dc78b672bf9f6c965566d699f830f`。这是随后撤销的
+active-only 中间 identity；
 随后 independent red-team 发现第二个 P0：REVERIE `episode_id` 的格式是
 `pathId_objId_instrIdx`。32/32 corrected signals 都因此在普通字符串字段中暴露 target object ID；canonical demo
 ordering 还直接使用 `episode_id`。allowlist sanitizer 虽删除了 `gt_obj_id` 等显式 forbidden keys，却没有消除
@@ -36,11 +45,11 @@ artifact/registry/runtime chain 不能作为“无 GT runtime” authority。必
 从 ordering/lineage 移除可逆 target token、更新 interface identity，并从零重新生成 signal/artifact/manifest/
 registry。当前只能声称 adapter 不消费 offline label、schema 没有显式 forbidden-key field。
 
-同一次 authority audit 还确认 registry 只校验被 wrapper 选中的最终 evidence signal digest，不校验它之前进入
+历史 authority audit 当时还确认 registry 只校验被 wrapper 选中的最终 evidence signal digest，不校验它之前进入
 state 的 `OBSERVATION` transition prefix。攻击者可伪造 prefix 的 pose/event ID，同时复用一个 allowlisted final
 signal，仍走到机械 CERTIFICATE/ACCEPT。因此当前能力的准确描述是“exact selected-evidence signal
-membership with caller-supplied prefix”，不是 exact full replay。P0R 还必须增加 code-owned event-prefix manifest
-或证明 prefix-independent state semantics，并让 verifier/offline audit 重算这一绑定。
+membership with caller-supplied prefix”，不是 exact full replay。该反例随后由 code-owned complete-prefix
+manifest 以及 runtime/offline 独立重算修复；当前 final identity 见第 3 节。
 
 还有一个独立 provenance 限制：`model_identity/interface_identity` 等 digests 目前由 CLI 字符串提供，没有
 code-checked derivation；保存的 tensor hashes 也不足以从 checkpoint 离线重算 logits。registry 能阻止冻结后
@@ -121,7 +130,7 @@ representation/method claim 必须撤回；schema 与变量增加不能构成 ex
 | calibration | **causally corrected descriptive diagnostic**：P1 = 6 scans / 54 examples，含 10 null / 2 error scans；bound `2/6 = 1/3`，`confidence=null` | active-only scan-familywise aggregation 的 exact descriptive result | 不是 held-out、conformal、finite-confidence 或 no-GT runtime guarantee |
 | artifact/registry | artifact digest `11caf45003b2d3f7fb5d3624f75e8b3ca964a5757a72728235e0f19d3bd58370`；72 signal digests + exact five-observation replay seal | artifact、selected signal、full relevant prefix 均可独立重算；伪造 prefix fail closed | 仍不是 checkpoint→logit attestation |
 | demonstration | `1LXtFkjw3qL / runtime-episode-3e91a522140d42cf2330e1be2e530f5d / event_seq 4 / slot 51 / score 5.40303897857666`；signal `5730b8a877cbff8ff14d3a59c0257b620b9414be8d60d53955800d03f848a441` | selector key只来自agent-visible tuple；offline truth在terminal后进入 | 单正例不证明性能或统计保证 |
-| budget diagnostics | budget 1 → CERTIFICATE/ACCEPT_FOUND/formal `TRUE_ACCEPT`；budget `.05` → `UNRESOLVED/RISK_BUDGET_EXCEEDED`，formal Oracle `UNRESOLVED` | fixed-slice non-Oracle runtime chain 可执行 | budget 1 是 vacuous mechanical diagnostic；`.05`无coverage |
+| budget diagnostics | **final:** budget 1 与 `.05` 均为 `UNRESOLVED/M3_NO_STATISTICAL_GUARANTEE` | state/evidence structural replay 可执行 | descriptive rate 不产生 certificate authority |
 | capability | entity SUPPORT-only schema 仍冻结 | adapter surface 不受 numeric refreeze 影响 | REFUTE、residual、identity、attribute、relation、room 仍未开放 |
 
 P0 的因果链是：batched episodes 在不同 step 结束；旧 hook 对整个 batch 无条件 emit；ended rows 被后续 step

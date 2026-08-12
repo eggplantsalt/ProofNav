@@ -45,26 +45,22 @@ class RiskCompositionMetamorphicTests(unittest.TestCase):
         self.assertEqual(wrapper["adapter_decision"]["decision"], "SUPPORTS")
         return scope, wrapper
 
-    def test_order_permutation_is_risk_invariant(self):
+    def test_order_permutation_cannot_unlock_descriptive_risk(self):
         scope, first = self._wrapper("m3-risk-order-a")
         second = copy.deepcopy(first)
-        expected = compose_certificate_risk([first, second], "FOUND", scope)
         for permutation in itertools.permutations([first, second]):
             with self.subTest(order=[item["evidence"]["evidence_id"]
                                      for item in permutation]):
-                self.assertEqual(
+                with self.assertRaisesRegex(
+                        ContractViolation, "M3_NO_STATISTICAL_GUARANTEE"):
                     compose_certificate_risk(list(permutation), "FOUND", scope),
-                    expected,
-                )
-        self.assertAlmostEqual(expected["upper_bound"], 1.0 / 3.0)
 
     def test_same_family_reuse_deduplicates_but_arbitrary_group_does_not(self):
         scope, first = self._wrapper("m3-risk-family-a")
         same_family = copy.deepcopy(first)
-        self.assertAlmostEqual(
-            compose_certificate_risk([first, same_family], "FOUND", scope)["upper_bound"],
-            1.0 / 3.0,
-        )
+        with self.assertRaisesRegex(
+                ContractViolation, "M3_NO_STATISTICAL_GUARANTEE"):
+            compose_certificate_risk([first, same_family], "FOUND", scope)
 
         attacked = copy.deepcopy(first)
         attacked["risk_atom"]["family_key"] = "caller:independent"
@@ -80,10 +76,11 @@ class RiskCompositionMetamorphicTests(unittest.TestCase):
         repeated = copy.deepcopy(first)
         for count in range(1, 6):
             with self.subTest(count=count):
-                risk = compose_certificate_risk(
-                    [first] + [repeated] * count, "FOUND", scope,
-                )
-                self.assertEqual(risk["upper_bound"], 1.0 / 3.0)
+                with self.assertRaisesRegex(
+                        ContractViolation, "M3_NO_STATISTICAL_GUARANTEE"):
+                    compose_certificate_risk(
+                        [first] + [repeated] * count, "FOUND", scope,
+                    )
 
     def test_polarity_swap_and_not_found_are_rejected(self):
         scope, wrapper = self._wrapper("m3-risk-polarity")
@@ -111,15 +108,11 @@ class RiskCompositionMetamorphicTests(unittest.TestCase):
                 ContractViolation, "M3_RISK_WRAPPER_RECOMPUTE"):
             compose_certificate_risk([attacked], "FOUND", scope)
 
-    def test_risk_uses_registered_bound_never_caller_upper_bound(self):
+    def test_empirical_frequency_never_becomes_certificate_upper_bound(self):
         scope, first = self._wrapper("m3-risk-authority")
-        risk = compose_certificate_risk([first], "FOUND", scope)
-        self.assertEqual(risk["upper_bound"], 1.0 / 3.0)
-        self.assertNotEqual(risk["upper_bound"], 0.0)
-        self.assertEqual(set(risk), {
-            "decision", "risk_type", "upper_bound", "budget",
-            "calibration_version", "composition_version",
-        })
+        with self.assertRaisesRegex(
+                ContractViolation, "M3_NO_STATISTICAL_GUARANTEE"):
+            compose_certificate_risk([first], "FOUND", scope)
 
     def test_scope_cannot_misname_selected_calibration_artifact(self):
         scope, wrapper = self._wrapper("m3-risk-version-binding")

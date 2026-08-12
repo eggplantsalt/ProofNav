@@ -1671,6 +1671,15 @@ def audit_certificate(audit_bundle, certificate, state=None):
                 families = {}
                 artifact_digests = set()
                 for wrapper in selected:
+                    artifact_bound = wrapper.get(
+                        "calibration_artifact", {},
+                    ).get("risk_bound", {})
+                    if (artifact_bound.get("confidence") is None
+                            or artifact_bound.get("semantics")
+                            == "descriptive_compatibility_not_statistical_guarantee"):
+                        reasons.append(
+                            "OFFLINE_M3_NO_STATISTICAL_GUARANTEE"
+                        )
                     atom = wrapper.get("risk_atom", {})
                     family_key = atom.get("family_key")
                     bound = atom.get("upper_bound")

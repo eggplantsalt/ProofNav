@@ -1,5 +1,12 @@
 # M3 calibration artifact and certificate-risk semantics
 
+> **Final statistical rule:** `confidence=null` or
+> `descriptive_compatibility_not_statistical_guarantee` can never produce a
+> certificate risk claim. It is diagnostic evidence only and returns
+> `M3_NO_STATISTICAL_GUARANTEE`. See
+> `M3_STATISTICAL_SEMANTICS_AUDIT.md`; any older budget-1 acceptance statement
+> below is revoked.
+
 ## 1. Artifact authority
 
 Calibration artifact是code-owned、canonical-hash sealed的aggregate object，至少绑定：evidence family与

@@ -615,8 +615,12 @@ def run(signal_file, annotation_file, output_dir):
         output_dir, "budget_0p05", strict_truth, strict_oracle,
     ))
 
-    permissive_true = (
-        permissive_oracle["outcome"] == "TRUE_ACCEPT"
+    permissive_safe = (
+        permissive["builder_outcome"]["status"] == "UNRESOLVED"
+        and permissive["terminal"]["semantic_verdict"] == "UNRESOLVED"
+        and permissive["structural_audit"]["valid"]
+        and permissive["terminal_audit"]["valid"]
+        and permissive_oracle["outcome"] == "UNRESOLVED"
     )
     strict_safe = (
         strict["builder_outcome"]["status"] == "UNRESOLVED"
@@ -628,7 +632,7 @@ def run(signal_file, annotation_file, output_dir):
     report = {
         "report_version": "proofnav.m3a-real-micro-slice-report.v1",
         "scientific_status": (
-            "mechanical_vertical_slice_only_bound_exceeds_strict_budget"
+            "descriptive_diagnostic_only_no_statistical_certificate"
         ),
         "inputs": {
             "signal_file": signal_file,
@@ -684,9 +688,15 @@ def run(signal_file, annotation_file, output_dir):
             "independent_certificate_valid": permissive["certificate_audit"]["valid"],
             "independent_terminal_valid": permissive["terminal_audit"]["valid"],
             "offline_outcome": permissive_oracle["outcome"],
+            "offline_safety_interpretation": (
+                "CORRECT_ABSTAIN" if permissive_safe else "AUDIT_FAILURE"
+            ),
             "oracle_reason_codes": permissive_oracle["reason_codes"],
             "files": permissive_files,
-            "interpretation": "interface diagnostic; budget 1.0 is vacuous and not a useful risk claim",
+            "interpretation": (
+                "descriptive artifact has no statistical authority; "
+                "budget 1.0 cannot unlock a certificate"
+            ),
         },
         "strict_budget_0p05": {
             "builder_status": strict["builder_outcome"]["status"],
@@ -702,7 +712,10 @@ def run(signal_file, annotation_file, output_dir):
             ),
             "oracle_reason_codes": strict_oracle["reason_codes"],
             "files": strict_files,
-            "interpretation": "artifact bound exceeds the conventional 0.05 false-FOUND budget",
+            "interpretation": (
+                "descriptive artifact has no statistical authority; "
+                "budget 0.05 cannot unlock a certificate"
+            ),
         },
         "runtime_truth_boundary": {
             "runtime_chain_function_accepts_truth": False,
@@ -715,8 +728,7 @@ def run(signal_file, annotation_file, output_dir):
         "limitations": [
             "val_train_seen scans overlap the frozen checkpoint training domain",
             "risk bound is descriptive 2/6 scan-familywise, with no confidence guarantee",
-            "the 1.0 budget acceptance tests mechanism only and is scientifically vacuous",
-            "the same real evidence is correctly UNRESOLVED at false_found budget 0.05",
+            "both 1.0 and 0.05 budgets are UNRESOLVED because no statistical upper bound exists",
             "entity REFUTE, residual coverage, identity, attribute, relation, and room remain sealed",
         ],
     }
@@ -729,7 +741,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--signal-file",
-        default=".m3-results/signals/val_train_seen_active.jsonl",
+        default=".m3-results/signals/val_train_seen_opaque.jsonl",
     )
     parser.add_argument(
         "--annotation-file",
@@ -737,7 +749,7 @@ def main(argv=None):
     )
     parser.add_argument(
         "--output-dir",
-        default=".m3-results/m3a_micro_slice_active",
+        default=".m3-results/m3a_micro_slice_opaque",
     )
     args = parser.parse_args(argv)
     report_path, report = run(

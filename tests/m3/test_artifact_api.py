@@ -37,18 +37,20 @@ class M3ArtifactApiTests(unittest.TestCase):
         )
         return scope, state, wrapper
 
-    def test_real_wrapper_state_certificate_verifier_found_chain(self):
+    def test_real_wrapper_state_is_diagnostic_but_certificate_fails_closed(self):
         _, state, wrapper = self._chain()
         validate_risk_atom(wrapper["risk_atom"], wrapper)
         state.append_evidence(wrapper)
         outcome = CertificateBuilder().build(state, "FOUND")
-        self.assertEqual(outcome["status"], "CERTIFICATE")
-        self.assertEqual(
-            outcome["certificate"]["risk_claim"]["upper_bound"], 1.0 / 3.0,
+        self.assertEqual(outcome["status"], "UNRESOLVED")
+        self.assertIsNone(outcome["certificate"])
+        self.assertIn(
+            "M3_NO_STATISTICAL_GUARANTEE",
+            outcome["feedback"]["reason_codes"],
         )
-        report = M3OnlineVerifier().verify(state, outcome["certificate"])
-        self.assertTrue(report["accepted"])
-        self.assertEqual(report["reason_codes"], [])
+        report = M3OnlineVerifier().verify(state, None)
+        self.assertFalse(report["accepted"])
+        self.assertEqual(report["status"], "DEFER")
 
     def test_decision_and_atom_resealing_cannot_change_authority(self):
         scope, _, wrapper = self._chain("m3-artifact-tamper")

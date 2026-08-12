@@ -1,5 +1,15 @@
 # ProofNav M3-A code-driven changelog
 
+> **Final M3-A/M3-B supersession:** after the opaque-ID/prefix repairs, a
+> statistical P0 showed that descriptive `2/6` was still being used as a
+> certificate upper bound. `compose_certificate_risk` and independent offline
+> audit now fail closed; budget 1.0 and .05 are both UNRESOLVED. The
+> precommitted terminal-cut successor then reduced confirmatory error scans
+> `3/6→1/6` at `21/21` episode coverage, without reaching the strict risk gate.
+> Current identities and code are frozen in `M3A_FINAL_FREEZE.md`,
+> `M3B_CHAMPION_REPORT.md` and `FINAL_RESEARCH_HANDOFF.md`. Older commands and
+> acceptance statements below are revoked-history unless explicitly marked.
+
 > **Final P0R supersession (2026-08-13):** Earlier active-only identities below (`61eec…`,
 > `d254…`, raw `2401_51_0`) are retained only as red-team history. The final hook replaces
 > target-bearing REVERIE `instr_id` with `runtime-episode-<SHA256(scan,start,instruction)>`,
@@ -248,8 +258,8 @@ docs/M3_CODE_DRIVEN_CHANGELOG.md
 | revocation/duplicate/stale certificate 绕过 history | active authority、cost/history、semantic dedup、transition tip 分离并重算 | revocation、duplicate、repeated build、staleness tests |
 | M3 seam 影响 frozen DUET/M2 默认路径 | parser default null、optional import guarded、explicit M3 classes/profile | hook default-off 与 M3-off=M2 production-zero tests |
 | ended batch row 在后续 model call 被重复写成新 signal | emitter 显式接收 call 前 `active_mask`，只遍历 active rows；当前 stop step 保留，先前已结束 rows 跳过 | active-mask AST/seam regression + real trajectory exact match / 0 repeated suffix |
-| composite `episode_id` 编码 target object ID | **尚未修复**：必须生成 runtime 不可解析的 code-owned pseudonym，canonical ordering 不得读取 evaluator ID，并重建 interface/signal/artifact/manifest/registry | 32/32 active records semantic-ID audit 已命中；修复前 no-GT authority fail closed |
-| manifest 只绑定 selected signal、不绑定 preceding observation prefix | **尚未修复**：认证完整 relevant event prefix，或证明 terminal semantics 与 prefix 独立，并由 online/offline verifier 重算 | forged pose/event-ID prefix + exact allowlisted final signal 仍 CERTIFICATE/ACCEPT |
+| composite `episode_id` 编码 target object ID | **历史发现，后续已修复**：opaque tuple-derived runtime ID + isolated offline join | 32/32 active records semantic-ID attack；final opaque regression |
+| manifest 只绑定 selected signal、不绑定 preceding observation prefix | **历史发现，后续已修复**：complete relevant prefix manifest，online/offline 独立重算 | forged pose/event-ID prefix 现在 fail closed |
 | model/interface identities 由 CLI 声明，logit 不可从保存内容复算 | **尚未修复**：code-derived identities、可复算 checkpoint→tensor→logit 链或可信签名/attestation | registry 只证明 frozen membership，不证明 producer provenance |
 
 ## 5. Real execution record and P0 invalidation
@@ -304,12 +314,12 @@ active-only builder 已冻结以下 aggregate facts：
 | hash partition records | development P0=67 / calibration P1=54 / demonstration P2=72 |
 | calibration | 6 scans / 54 examples / 10 null selections / 2 error scans |
 | descriptive upper bound | `2/6 = 1/3`；`confidence=null` |
-| artifact digest | `d2548e03e38c24423f846c372d66ed0abd1dc78b672bf9f6c965566d699f830f` |
+| revoked historical artifact digest | `d2548e03e38c24423f846c372d66ed0abd1dc78b672bf9f6c965566d699f830f` |
 | artifact file SHA-256 | `80f745393054e75a6850d49b8a2764b5b74cc52e48b2ec06cca2c0d7c15b38bb` |
 | canonical demo | `1LXtFkjw3qL / 2401_51_0 / event_seq 4 / slot 51 / score 5.40303897857666` |
 | demo signal digest | `4b41f5f79d866ec0b0367580484f2aa08ab9a9586dcc37d200caed20a1e1efe9` |
-| mechanical budget 1 | builder CERTIFICATE；derived risk `1/3`；online ACCEPT；terminal ACCEPT_FOUND；formal offline `TRUE_ACCEPT` |
-| mechanical budget `.05` | builder `UNRESOLVED/RISK_BUDGET_EXCEEDED`；terminal `FINALIZE_UNRESOLVED`；formal Oracle `UNRESOLVED` |
+| revoked historical budget 1 | builder CERTIFICATE；derived risk `1/3`；online ACCEPT；terminal ACCEPT_FOUND；formal offline `TRUE_ACCEPT` |
+| revoked historical budget `.05` | builder `UNRESOLVED/RISK_BUDGET_EXCEEDED`；terminal `FINALIZE_UNRESOLVED`；formal Oracle `UNRESOLVED` |
 
 strict run 的 runner safety interpretation 是 `CORRECT_ABSTAIN`，但 formal `OracleOfflineVerifier` taxonomy
 outcome 是 `UNRESOLVED`。更重要的是，两组结果都基于含 target-ID alias、caller-supplied prefix 的
@@ -399,3 +409,24 @@ identity 与全量 authority rebuild；然后才按
 `docs/M3_FALSIFICATION_REPORT.md` 的 cheapest-killer 顺序 audit 合法 scan split/labels、scan-familywise
 risk--coverage 与 adaptive/repeat counterexample。在这些 gate 通过前，不训练新模型、不运行正式 benchmark、
 不开放 NOT_FOUND/residual/identity，也不进入 M4 planner。
+
+## 9. Final superseding implementation record
+
+Section 8 described the state before the final repairs. The current tree now:
+
+- derives opaque episode IDs and uses an offline tuple join;
+- seals the complete five-observation registered prefix;
+- freezes artifact `11caf450...58370` and opaque signal SHA `438741...c03bd`;
+- rejects every descriptive certificate in runtime composition and independent
+  offline audit; the regenerated M3-A report has both budgets UNRESOLVED;
+- adds `terminal_signal.py`, a same-forward explicit action-cut hook and an
+  idempotent event key for batch-wrap replay;
+- adds `grounding_scope.py` and `terminal_adapter.py` so search scores, forced
+  endings, unsupported typed instructions and unavailable statistical risk
+  are distinct ABSTAIN reasons;
+- adds the precommitted six-scan evaluator and exact Clopper--Pearson CPU test;
+- records the real terminal signal SHA `56af9957...65dc` and report digest
+  `68412fc3...aaa6`.
+
+The current handoff is [FINAL_RESEARCH_HANDOFF.md](FINAL_RESEARCH_HANDOFF.md),
+not section 8's pre-repair blocker list.

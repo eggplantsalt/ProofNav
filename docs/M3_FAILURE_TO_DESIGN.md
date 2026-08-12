@@ -1,5 +1,11 @@
 # M3-A failure-to-design record
 
+> **Final continuation:** scalar threshold/margin/entropy repairs were killed.
+> A precommitted terminal-cut gate directionally passed (`3/6→1/6` error scans,
+> `21/21` coverage) but exposed a typed purse-identity error and failed strict
+> risk. See `M3_FAILURE_ATLAS.md` and `M3_CANDIDATE_TOURNAMENT.md`; any earlier
+> `TRUE_ACCEPT` text is historical mechanical replay only.
+
 > 日期：2026-08-12（UTC）  
 > 选择原则：cheapest distinguishing falsification；固定 ProofNav 母问题，不锁死内部 evidence 方法
 
@@ -88,10 +94,10 @@ scan-familywise bound，而不是 formal statistical guarantee。
 
 这一结果将“接口是否真的”与“方法是否有用”分开：
 
-- 机械诊断：在明示为 vacuous 的 `alpha_F=1.0` 下，真实 signal 经 registered artifact、
-  M3 state、certificate、online verifier/terminal 到正式 offline Oracle 为 `TRUE_ACCEPT`；
-- 科学门槛：同一证据在 `alpha_F=0.05` 下由 builder 以 `RISK_BUDGET_EXCEEDED` 拒绝，
-  terminal 为 `UNRESOLVED`。
+- 历史机械诊断曾在 `alpha_F=1.0` 下得到 `TRUE_ACCEPT`，但统计审计证明它把 descriptive
+  frequency 当成 upper bound；该结果已撤销；
+- 最终执行语义：`alpha_F=1.0` 与 `.05` 都由 builder 以
+  `M3_NO_STATISTICAL_GUARANTEE` 拒绝，terminal 为 `UNRESOLVED`。
 
 所以 P1 的处置是 **mechanism Continue, scientific Revise**，不能为它降低风险标准。
 按预注册最小修复，M3-B 转向 P3：冻结 DUET representations 上的 target-slot+null 轻量

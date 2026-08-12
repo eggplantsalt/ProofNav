@@ -6,9 +6,9 @@
 >
 > 代码基线：VLN-DUET `main@93e8b233164bc079a6db48b8a0a78d123ec8de41`
 >
-> 当前状态：**M0 已实测完成，M1-A/M1-B 已完成；旧 bulk-snapshot M2 complete 声明永久撤回，M2.1 successor 已通过 semantic/adversarial gate；M3-A 的真实 DUET signal→entity SUPPORT/ABSTAIN→派生风险→verifier 工程闭环已完成，但 frozen-logit P1 以 `2/6` scan-familywise 描述性错误上界未通过 `alpha_F=0.05` 科学门槛，因而状态是 `Revise` 而非完整 M3 complete**。项目停在 M3-A→M3-B 边界；attribute/relation/room/coverage/identity 仍 sealed，M4/M5、正式 paired 数据和训练模型均未进入。
+> 当前状态：**M0/M1 已冻结；旧 bulk-snapshot M2 complete 声明永久撤回，M2.1 successor 已通过 semantic/adversarial gate；M3-A 的真实 opaque signal/prefix 工程闭环完成，但 `2/6` 仅是 descriptive rate，budget 1.0/0.05 均为 `M3_NO_STATISTICAL_GUARANTEE → UNRESOLVED`。M3-B 的预注册 terminal-cut probe 在 6 个 discovery-disjoint seen scans 上把 error scans 从 `3/6` 降到 `1/6`，episode coverage 保持 `21/21`，方向性 Continue，但严格风险与 typed identity 仍失败。** 当前冻结在 M3-B scientific Revise；唯一下一主线是 null-aware typed grounding + obligation-guided continuation + whole-policy scan calibration。attribute/relation/room/coverage/identity 证据仍 sealed，M4/M5、正式 paired 数据和训练均未进入。
 
-相关文档：[新手代码库说明](CODEBASE_BEGINNER_GUIDE.md)；[代码约束下的设计审查](CODE_GROUNDED_DESIGN_REVIEW.md)；[M0 复现报告](reproduction/M0_REPRODUCTION_REPORT.md)；[M1 合同](M1_CONTRACTS.md)；[M1 代码驱动微调](M1_CODE_DRIVEN_CHANGELOG.md)；[M2 架构](M2_ARCHITECTURE.md)；[M2 schema](M2_CERTIFICATE_VERIFIER_SCHEMA.md)；[M2 边界](M2_DEPENDENCY_BOUNDARY.md)；[M2 falsification](M2_FALSIFICATION_REPORT.md)；[M3 precommit](M3_SCIENTIFIC_PRECOMMIT.md)；[M3 能力审计](M3_EVIDENCE_CAPABILITY_AUDIT.md)；[M3 风险语义](M3_CALIBRATION_AND_RISK_SEMANTICS.md)；[M3 falsification](M3_FALSIFICATION_REPORT.md)。
+相关文档：[新手代码库说明](CODEBASE_BEGINNER_GUIDE.md)；[代码约束下的设计审查](CODE_GROUNDED_DESIGN_REVIEW.md)；[M0 复现报告](reproduction/M0_REPRODUCTION_REPORT.md)；[M1 合同](M1_CONTRACTS.md)；[M2 架构](M2_ARCHITECTURE.md)；[M2 falsification](M2_FALSIFICATION_REPORT.md)；[M3-A 最终冻结](M3A_FINAL_FREEZE.md)；[统计语义审计](M3_STATISTICAL_SEMANTICS_AUDIT.md)；[失败图谱](M3_FAILURE_ATLAS.md)；[候选竞赛](M3_CANDIDATE_TOURNAMENT.md)；[M3-B 预承诺](M3B_SCIENTIFIC_PRECOMMIT.md)；[冠军报告](M3B_CHAMPION_REPORT.md)；[资源审计](M3_RESOURCE_AUDIT.md)；[最终研究交接](FINAL_RESEARCH_HANDOFF.md)。
 
 ## 0. 固定范围与证据标记
 
@@ -538,18 +538,20 @@ verifier-gated terminal 接到正式闭环。
 
 ### 权限
 
-M0、M1、M2.1 与 M3-A 的现有资产允许维护和小型 CPU falsification。不得自行
-安装关键依赖、下载大型资源、重跑 M0、使用 GPU 运行进一步/正式实验、训练
-M3-B head、生成正式 paired 数据，或进入 M4 re-ranker/正式 DUET 闭环。M3-B 是 P1
-失败后的方法修订和新研究阶段，需用户授权其精确数据、训练与 GPU 资源。Agent 发现
-风险时可以收缩 claim、改接口或提出主线内小修复，但无权自行更换问题、benchmark、
-DUET 基座或取消核心语义。
+M0、M1、M2.1 与当前 M3-A/M3-B 资产允许维护和小型 CPU falsification。本轮一次性
+terminal-cut GPU probe 已完成并冻结，不构成后续 GPU/训练授权。不得自行安装关键依赖、
+下载大型资源、重跑 M0、训练 typed head、访问 val-unseen/test、生成正式 paired 数据，或
+进入 M4 re-ranker/正式 DUET 闭环。下一阶段必须先由用户授权 scan-disjoint label、轻量训练、
+GPU 与 calibration 范围，并落盘新 precommit。Agent 可以收缩 claim、改 fail-closed 接口或提出
+主线内小修复，但无权更换问题、benchmark、DUET 基座或取消核心语义。
 
 ## 13. 当前阶段出口
 
 代码事实、信息边界、第一阶段离散对象、三项增强、接入接口和里程碑保持冻结。**M0、M1 与
-条件化的 M2.1 successor 已达到各自限定验收；M3-A 完成了真实、非 Oracle、默认关闭的
-entity-SUPPORT 机械闭环，但 P1 frozen-logit 在有用风险门槛下失败，必须保留为
-`Revise`。** 当前停在 M3-A→M3-B 边界。下一步需在用户批准的 scan-disjoint labels 和轻量
-head 训练范围内重置 calibration gate；不得使用 val-unseen/test 选方法，也不得跳到 M4、
-正式 benchmark 或完整 M3 complete claim。
+条件化的 M2.1 successor 已达到各自限定验收；M3-A 的结构链完成、统计 authority 撤回；
+M3-B terminal-cut 通过方向性机制 gate，但以 `1/6` error scans 和假设 i.i.d. 时 95% upper
+`0.5818` 明确未过 `alpha_F=.05`。** 项目不再留下平级 TODO：下一阶段唯一主线是用合法
+scan-disjoint labels 训练 null-aware typed grounding head，将 unresolved typed obligation 驱动
+continuation，并对冻结完整 terminal policy 做 scan-level calibration。先过 purse 同类实例、三个
+target-absent 高置信反例和非零 matched-risk coverage killer；不得用 val-unseen/test 选方法，
+不得跳到普通 M4 reranking、正式 benchmark 或完整 M3 complete claim。

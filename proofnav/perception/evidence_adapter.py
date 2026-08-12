@@ -276,6 +276,7 @@ def validate_adapter_decision(value):
             "CALIBRATION_DOMAIN_MISMATCH", "EMPTY_OR_MASKED_PROPOSALS",
             "UNSUPPORTED_SUBJECT_COMPONENT", "SUBJECT_BINDING_MISMATCH",
             "ENTITY_BINDING_MISMATCH", "BELOW_SUPPORT_THRESHOLD",
+            "STATISTICAL_RISK_UNAVAILABLE",
         }
         if value["reason_code"] not in allowed_reasons:
             _fail("M3_ADAPTER_ABSTAIN", "$.adapter_decision.reason_code", "unregistered abstention reason")

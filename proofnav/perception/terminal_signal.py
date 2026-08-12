@@ -103,16 +103,34 @@ class DuetTerminalSignalSink(object):
         if parent and not os.path.isdir(parent):
             os.makedirs(parent)
         self._file = open(self.path, "w", encoding="utf-8")
+        self._event_records = {}
 
     def emit(self, **kwargs):
         if self._file is None:
             _fail("M3B_TERMINAL_CLOSED", "$.sink", "sink is closed")
+        observation = kwargs.get("observation", {})
+        event_key = (
+            observation.get("episode_id"), observation.get("event_seq"),
+        )
+        if (not isinstance(event_key[0], str)
+                or isinstance(event_key[1], bool)
+                or not isinstance(event_key[1], int)):
+            _fail(
+                "M3B_TERMINAL_EVENT_KEY", "$.observation",
+                "episode_id and event_seq are required before emission",
+            )
+        # Evaluation iterators may pad their final batch by replaying initial
+        # episodes.  An event-sourced sink admits the first causal event once;
+        # a batch wrap is not a second observation or statistical sample.
+        if event_key in self._event_records:
+            return copy.deepcopy(self._event_records[event_key])
         kwargs["model_identity"] = self.model_identity
         value = build_terminal_signal(**kwargs)
         self._file.write(json.dumps(
             value, sort_keys=True, separators=(",", ":"), allow_nan=False,
         ) + "\n")
         self._file.flush()
+        self._event_records[event_key] = copy.deepcopy(value)
         return value
 
     def close(self):
@@ -123,7 +141,7 @@ class DuetTerminalSignalSink(object):
 
 
 __all__ = [
-    "DUETTerminalSignalSink", "TERMINAL_SIGNAL_PRODUCER",
+    "DuetTerminalSignalSink", "TERMINAL_SIGNAL_PRODUCER",
     "TERMINAL_SIGNAL_SCHEMA_VERSION", "build_terminal_signal",
     "validate_terminal_signal",
 ]

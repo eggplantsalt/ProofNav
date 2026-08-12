@@ -83,6 +83,7 @@ def parse_args():
     # M3 real-signal extraction.  Every option is default-off so legacy DUET
     # does not import ProofNav perception code or open an additional output.
     parser.add_argument('--proofnav_signal_file', type=str, default=None)
+    parser.add_argument('--proofnav_terminal_signal_file', type=str, default=None)
     parser.add_argument('--proofnav_signal_model_digest', type=str, default=None)
     parser.add_argument('--proofnav_signal_checkpoint_digest', type=str, default=None)
     parser.add_argument('--proofnav_signal_feature_digest', type=str, default=None)

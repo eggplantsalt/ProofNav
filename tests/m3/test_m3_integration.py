@@ -52,47 +52,42 @@ class M3IntegrationAttackTests(unittest.TestCase):
         )
         return scope, template, signal, artifact, state, query, wrapper
 
-    def test_non_oracle_support_reaches_verifier_gated_found_terminal(self):
+    def test_non_oracle_support_reaches_state_but_descriptive_risk_defers(self):
         _, _, _, _, state, _, wrapper = self._chain()
         state.append_evidence(wrapper)
         outcome = CertificateBuilder().build(state, "FOUND")
-        self.assertEqual(outcome["status"], "CERTIFICATE", outcome)
-        certificate = outcome["certificate"]
-        self.assertEqual(certificate["risk_claim"]["upper_bound"], 1.0 / 3.0)
+        self.assertEqual(outcome["status"], "UNRESOLVED", outcome)
+        self.assertIn(
+            "M3_NO_STATISTICAL_GUARANTEE",
+            outcome["feedback"]["reason_codes"],
+        )
+        certificate = None
         report = M3OnlineVerifier().verify(state, certificate)
-        self.assertEqual(report["status"], "ACCEPT", report)
+        self.assertEqual(report["status"], "DEFER", report)
         terminal = M3TerminalController().decide(
             state, "FOUND", certificate, execution(duet_stop=True),
         )
-        self.assertEqual(terminal["directive"], "ACCEPT_FOUND", terminal)
-        self.assertEqual(
-            terminal["accepted_certificate_digest"],
-            certificate["certificate_digest"],
-        )
+        self.assertNotEqual(terminal["directive"], "ACCEPT_FOUND", terminal)
+        self.assertIsNone(terminal["accepted_certificate_digest"])
 
         # The offline structural implementation independently accepts the
         # raw transition bundle, certificate, and terminal identity.
         structure = structural_result(state.audit_bundle())
         self.assertTrue(structure["valid"], structure)
-        cert_audit = audit_certificate(
-            state.audit_bundle(), certificate, state=structure["state"],
-        )
-        self.assertTrue(cert_audit["valid"], cert_audit)
         terminal_audit = audit_terminal(
             structure["state"], terminal, certificate,
         )
         self.assertTrue(terminal_audit["valid"], terminal_audit)
 
-    def test_certificate_caller_risk_reduction_rejected_even_if_resealed(self):
+    def test_caller_cannot_obtain_certificate_to_reduce_descriptive_risk(self):
         _, _, _, _, state, _, wrapper = self._chain("m3-cert-risk")
         state.append_evidence(wrapper)
-        certificate = CertificateBuilder().build(state, "FOUND")["certificate"]
-        attacked = copy.deepcopy(certificate)
-        attacked["risk_claim"]["upper_bound"] = 0.0
-        attacked = reseal(attacked)
-        report = M3OnlineVerifier().verify(state, attacked)
-        self.assertEqual(report["status"], "REJECT", report)
-        self.assertIn("RISK_CLAIM_MISMATCH", report["reason_codes"])
+        outcome = CertificateBuilder().build(state, "FOUND")
+        self.assertIsNone(outcome["certificate"])
+        self.assertIn(
+            "M3_NO_STATISTICAL_GUARANTEE",
+            outcome["feedback"]["reason_codes"],
+        )
 
     def test_forged_observation_prefix_cannot_use_registered_final_signal(self):
         scope = real_scope(1.0)
@@ -228,10 +223,9 @@ class M3IntegrationAttackTests(unittest.TestCase):
         self.assertEqual(
             CertificateBuilder().build(state, "FOUND")["status"], "UNRESOLVED",
         )
+        self.assertIsNone(certificate)
         report = M3OnlineVerifier().verify(state, certificate)
-        self.assertEqual(report["status"], "REJECT")
-        self.assertTrue(any(code.startswith("STALE_")
-                            for code in report["reason_codes"]), report)
+        self.assertEqual(report["status"], "DEFER")
 
     def test_duplicate_semantic_evidence_cannot_be_recounted(self):
         _, _, _, _, state, _, wrapper = self._chain("m3-duplicate")
@@ -248,11 +242,15 @@ class M3IntegrationAttackTests(unittest.TestCase):
         _, _, _, _, state, _, wrapper = self._chain("m3-cert-reuse")
         state.append_evidence(wrapper)
         before = state.snapshot()
-        first = CertificateBuilder().build(state, "FOUND")["certificate"]
-        second = CertificateBuilder().build(state, "FOUND")["certificate"]
+        first = CertificateBuilder().build(state, "FOUND")
+        second = CertificateBuilder().build(state, "FOUND")
         after = state.snapshot()
         self.assertEqual(first, second)
-        self.assertEqual(first["evidence_ids"], [wrapper["evidence"]["evidence_id"]])
+        self.assertEqual(first["status"], "UNRESOLVED")
+        self.assertIn(
+            "M3_NO_STATISTICAL_GUARANTEE",
+            first["feedback"]["reason_codes"],
+        )
         self.assertEqual(after["cost_ledger"], before["cost_ledger"])
         self.assertEqual(after["ledger_event_count"], before["ledger_event_count"])
 
@@ -261,7 +259,8 @@ class M3IntegrationAttackTests(unittest.TestCase):
             "m3-artifact-successor",
         )
         state.append_evidence(first)
-        old = CertificateBuilder().build(state, "FOUND")["certificate"]
+        old_outcome = CertificateBuilder().build(state, "FOUND")
+        self.assertIsNone(old_outcome["certificate"])
         spec = artifact_spec()
         spec["calibration_parameters"]["support_threshold"] = 3.5
         candidate = build_calibration_artifact(spec)
@@ -270,8 +269,8 @@ class M3IntegrationAttackTests(unittest.TestCase):
             build_calibrated_bound_evidence(
                 query, signal, candidate, scope["scope_contract_id"],
             )
-        accepted = M3OnlineVerifier().verify(state, old)
-        self.assertEqual(accepted["status"], "ACCEPT", accepted)
+        accepted = M3OnlineVerifier().verify(state, old_outcome["certificate"])
+        self.assertEqual(accepted["status"], "DEFER", accepted)
 
     def test_not_found_and_residual_coverage_remain_sealed(self):
         _, _, _, _, state, _, wrapper = self._chain("m3-not-sealed")

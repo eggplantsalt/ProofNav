@@ -1,5 +1,11 @@
 # M3 data and label boundary
 
+> **Final boundary:** opaque runtime IDs and complete-prefix seals are repaired.
+> The registered M3-A artifact is diagnostic-only, and M3-B annotations are
+> opened only after the six-scan method filter is frozen. See
+> `M3A_FINAL_FREEZE.md` and `FINAL_RESEARCH_HANDOFF.md`; older P0 warnings below
+> describe the audit trail rather than an unresolved current leak.
+
 ## 1. Runtime allowlist
 
 Runtime可读取：instruction/token、实际到达viewpoint的panorama/object tensors、ordered slot IDs仅作为

@@ -256,6 +256,7 @@ def valid(args, train_env, val_envs, rank=-1):
         start_time = time.time()
         trace_path = None
         signal_path = None
+        terminal_signal_path = None
         if args.runtime_trace_file is not None:
             if '{split}' in args.runtime_trace_file:
                 trace_path = args.runtime_trace_file.format(split=env_name)
@@ -282,11 +283,27 @@ def valid(args, train_env, val_envs, rank=-1):
             if (args.offline_metrics_file is not None and
                     os.path.abspath(signal_path) == os.path.abspath(args.offline_metrics_file)):
                 raise ValueError('ProofNav signal and offline metrics require separate files')
+        if args.proofnav_terminal_signal_file is not None:
+            if '{split}' in args.proofnav_terminal_signal_file:
+                terminal_signal_path = args.proofnav_terminal_signal_file.format(
+                    split=env_name)
+            elif len(val_envs) == 1:
+                terminal_signal_path = args.proofnav_terminal_signal_file
+            else:
+                stem, ext = os.path.splitext(args.proofnav_terminal_signal_file)
+                terminal_signal_path = '%s_%s%s' % (stem, env_name, ext)
+            os.makedirs(os.path.dirname(os.path.abspath(terminal_signal_path)), exist_ok=True)
+            collision_paths = [trace_path, signal_path, args.offline_metrics_file]
+            if any(path is not None and os.path.abspath(terminal_signal_path) == os.path.abspath(path)
+                   for path in collision_paths):
+                raise ValueError('ProofNav terminal signal requires a separate file')
         try:
             if trace_path is not None:
                 agent.set_runtime_trace(trace_path)
             if signal_path is not None:
                 agent.set_proofnav_signal(signal_path)
+            if terminal_signal_path is not None:
+                agent.set_proofnav_terminal_signal(terminal_signal_path)
             agent.test(
                 use_dropout=False, feedback='argmax', iters=iters)
         finally:
@@ -294,6 +311,8 @@ def valid(args, train_env, val_envs, rank=-1):
                 agent.set_runtime_trace(None)
             if signal_path is not None:
                 agent.set_proofnav_signal(None)
+            if terminal_signal_path is not None:
+                agent.set_proofnav_terminal_signal(None)
         print(env_name, 'cost time: %.2fs' % (time.time() - start_time))
         preds = agent.get_results(detailed_output=args.detailed_output)
         preds = merge_dist_results(all_gather(preds))

@@ -84,6 +84,7 @@ def compose_certificate_risk(wrappers, verdict, scope):
 
     families = {}
     artifact_digests = set()
+    descriptive_artifact = False
     for index, wrapper in enumerate(wrappers):
         if not isinstance(wrapper, dict):
             _fail("TYPE_MAPPING", "$.wrappers[%d]" % index, "expected an object")
@@ -116,6 +117,12 @@ def compose_certificate_risk(wrappers, verdict, scope):
             wrapper.get("risk_atom"), wrapper,
             "$.wrappers[%d].risk_atom" % index,
         )
+        artifact_bound = wrapper["calibration_artifact"]["risk_bound"]
+        descriptive_artifact = descriptive_artifact or (
+            artifact_bound["confidence"] is None
+            or artifact_bound["semantics"]
+            == "descriptive_compatibility_not_statistical_guarantee"
+        )
         artifact_digests.add(atom["artifact_digest"])
         prior = families.get(atom["family_key"])
         if prior is not None and prior != atom["upper_bound"]:
@@ -134,6 +141,12 @@ def compose_certificate_risk(wrappers, verdict, scope):
         _fail(
             "M3_RISK_CALIBRATION_VERSION", "$.scope.calibration_version",
             "scope must name the exact selected artifact digest",
+        )
+    if descriptive_artifact:
+        _fail(
+            "M3_NO_STATISTICAL_GUARANTEE",
+            "$.wrappers[*].calibration_artifact.risk_bound",
+            "descriptive empirical error cannot authorize a certificate",
         )
     upper = min(1.0, sum(float(value) for value in families.values()))
     budget = scope["risk_budgets"].get("false_found")

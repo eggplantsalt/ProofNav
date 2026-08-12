@@ -22,6 +22,15 @@ from proofnav.perception.duet_signal import (
     build_duet_signal,
 )
 from proofnav.perception.entity_template import build_entity_proof_template
+from proofnav.perception.terminal_signal import (
+    DuetTerminalSignalSink,
+    build_terminal_signal,
+    validate_terminal_signal,
+)
+from proofnav.perception.grounding_scope import (
+    classify_entity_only_instruction,
+)
+from proofnav.perception.terminal_adapter import adapt_terminal_entity_signal
 from tests.m3.fixtures import HASHES, m3_observation, m3_template
 
 
@@ -238,6 +247,187 @@ class DuetSignalBuilderTests(unittest.TestCase):
             with self.assertRaisesRegex(ContractViolation, "M3_SIGNAL_CLOSED"):
                 sink.emit(**inputs)
 
+    def test_terminal_signal_binds_the_same_forward_pass_to_explicit_stop(self):
+        inputs = _inputs()
+        inputs["decision_context"] = {
+            "active_before_decision": True,
+            "selected_navigation_index": 0,
+            "duet_stop": True,
+            "no_frontier": False,
+            "max_step": False,
+            "environment_action_is_none": True,
+            "evidence_eligibility": "TERMINAL_SUPPORT",
+        }
+        first = build_terminal_signal(**inputs)
+        second = build_terminal_signal(**inputs)
+        self.assertEqual(first, second)
+        self.assertEqual(
+            first["base_signal"]["observation_digest"],
+            canonical_sha256(inputs["observation"]),
+        )
+        self.assertEqual(
+            first["decision_context"]["evidence_eligibility"],
+            "TERMINAL_SUPPORT",
+        )
+        self.assertEqual(validate_terminal_signal(first), first)
+
+        moving = copy.deepcopy(inputs)
+        moving["decision_context"].update({
+            "selected_navigation_index": 2,
+            "duet_stop": False,
+            "environment_action_is_none": False,
+            "evidence_eligibility": "SEARCH_PROPOSAL",
+        })
+        self.assertEqual(
+            build_terminal_signal(**moving)["decision_context"][
+                "evidence_eligibility"
+            ],
+            "SEARCH_PROPOSAL",
+        )
+
+    def test_terminal_signal_rejects_forced_end_as_support_and_inactive_rows(self):
+        base = _inputs()
+        attacks = [
+            {
+                "active_before_decision": True,
+                "selected_navigation_index": 1,
+                "duet_stop": False,
+                "no_frontier": True,
+                "max_step": False,
+                "environment_action_is_none": True,
+                "evidence_eligibility": "TERMINAL_SUPPORT",
+            },
+            {
+                "active_before_decision": False,
+                "selected_navigation_index": 0,
+                "duet_stop": True,
+                "no_frontier": False,
+                "max_step": False,
+                "environment_action_is_none": True,
+                "evidence_eligibility": "TERMINAL_SUPPORT",
+            },
+        ]
+        for decision in attacks:
+            with self.subTest(decision=decision):
+                with self.assertRaises(ContractViolation):
+                    build_terminal_signal(
+                        decision_context=decision, **base
+                    )
+
+    def test_terminal_jsonl_sink_round_trip(self):
+        inputs = _inputs()
+        model_identity = inputs.pop("model_identity")
+        inputs["decision_context"] = {
+            "active_before_decision": True,
+            "selected_navigation_index": 0,
+            "duet_stop": True,
+            "no_frontier": False,
+            "max_step": False,
+            "environment_action_is_none": True,
+            "evidence_eligibility": "TERMINAL_SUPPORT",
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = str(Path(directory) / "terminal.jsonl")
+            sink = DuetTerminalSignalSink(path, model_identity)
+            emitted = sink.emit(**inputs)
+            sink.close()
+            loaded = json.loads(Path(path).read_text(encoding="utf-8"))
+            self.assertEqual(loaded, emitted)
+            with self.assertRaisesRegex(
+                    ContractViolation, "M3B_TERMINAL_CLOSED"):
+                sink.emit(**inputs)
+
+    def test_terminal_sink_deduplicates_batch_wrap_event_keys(self):
+        inputs = _inputs()
+        model_identity = inputs.pop("model_identity")
+        inputs["decision_context"] = {
+            "active_before_decision": True,
+            "selected_navigation_index": 0,
+            "duet_stop": True,
+            "no_frontier": False,
+            "max_step": False,
+            "environment_action_is_none": True,
+            "evidence_eligibility": "TERMINAL_SUPPORT",
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = str(Path(directory) / "terminal.jsonl")
+            sink = DuetTerminalSignalSink(path, model_identity)
+            first = sink.emit(**inputs)
+            changed = copy.deepcopy(inputs)
+            changed["object_logits"][0] += 100.0
+            replay = sink.emit(**changed)
+            sink.close()
+            self.assertEqual(replay, first)
+            self.assertEqual(
+                len(Path(path).read_text(encoding="utf-8").splitlines()), 1,
+            )
+
+    def test_entity_only_scope_is_conservative_and_auditable(self):
+        minimal = classify_entity_only_instruction("Find chair.")
+        typed = classify_entity_only_instruction(
+            "Grab purse in bathroom on first floor from hook on wall"
+        )
+        self.assertTrue(minimal["entity_only_eligible"])
+        self.assertEqual(minimal["entity_token"], "chair")
+        self.assertFalse(typed["entity_only_eligible"])
+        self.assertEqual(typed["reason_code"], "UNSUPPORTED_TYPED_GROUNDING")
+
+    def test_terminal_adapter_seals_search_typed_and_descriptive_paths(self):
+        def terminal_for(instruction, duet_stop):
+            inputs = _inputs()
+            inputs["observation"]["instruction"] = instruction
+            inputs["observation"]["instruction_encoding_length"] = 4
+            inputs["template_digest"] = canonical_sha256(
+                build_entity_proof_template(instruction)
+            )
+            inputs["instruction_encoding"] = np.arange(4, dtype=np.int32)
+            inputs["decision_context"] = {
+                "active_before_decision": True,
+                "selected_navigation_index": 0 if duet_stop else 1,
+                "duet_stop": duet_stop,
+                "no_frontier": False,
+                "max_step": False,
+                "environment_action_is_none": duet_stop,
+                "evidence_eligibility": (
+                    "TERMINAL_SUPPORT" if duet_stop else "SEARCH_PROPOSAL"
+                ),
+            }
+            return build_terminal_signal(**inputs)
+
+        query = {"test": "query"}
+        moving = adapt_terminal_entity_signal(
+            query, terminal_for("Find chair.", False), None,
+        )
+        self.assertEqual(moving["reason_code"], "NON_TERMINAL_EVIDENCE")
+
+        typed = adapt_terminal_entity_signal(
+            query,
+            terminal_for(
+                "Grab purse in bathroom on first floor from hook on wall",
+                True,
+            ),
+            None,
+        )
+        self.assertEqual(typed["reason_code"], "UNSUPPORTED_TYPED_GROUNDING")
+
+        fake_support = {"decision": "SUPPORTS"}
+        descriptive = {
+            "risk_bound": {
+                "confidence": None,
+                "semantics":
+                    "descriptive_compatibility_not_statistical_guarantee",
+            },
+        }
+        with mock.patch(
+                "proofnav.perception.terminal_adapter.adapt_entity_signal",
+                return_value=fake_support):
+            unavailable = adapt_terminal_entity_signal(
+                query, terminal_for("Find chair.", True), descriptive,
+            )
+        self.assertEqual(
+            unavailable["reason_code"], "STATISTICAL_RISK_UNAVAILABLE",
+        )
+
 
 class DuetSignalDefaultOffTests(unittest.TestCase):
 
@@ -394,9 +584,13 @@ class DuetSignalDefaultOffTests(unittest.TestCase):
             "self.proofnav_signal is None",
             ast.get_source_segment(source, emit.body[1].test),
         )
-        self.assertEqual(
-            [item.arg for item in emit.args.args[-2:]],
-            ["active_mask", "runtime_episode_ids"],
+        argument_names = [item.arg for item in emit.args.args]
+        self.assertLess(
+            argument_names.index("active_mask"), argument_names.index("sink"),
+        )
+        self.assertLess(
+            argument_names.index("runtime_episode_ids"),
+            argument_names.index("decision_contexts"),
         )
         loop = next(node for node in emit.body if isinstance(node, ast.For))
         active_guard = next(
@@ -422,6 +616,9 @@ class DuetSignalDefaultOffTests(unittest.TestCase):
         self.assertEqual(len(guarded_calls), 1)
         guarded_source = ast.get_source_segment(source, guarded_calls[0])
         self.assertIn("active_mask=np.logical_not(ended)", guarded_source)
+        self.assertIn(
+            "ProofNav terminal signal is evaluation-only", source,
+        )
 
     def test_validation_closes_signal_in_finally(self):
         source = MAIN_PATH.read_text(encoding="utf-8")

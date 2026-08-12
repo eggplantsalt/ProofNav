@@ -1,5 +1,11 @@
 # M3-A DUET evidence capability audit
 
+> **2026-08-13 supersession:** final signal facts are 193 opaque active rows
+> (SHA `438741...c03bd`). The head is a conditional annotated-slot ranker, not a
+> target-presence or typed-identity sensor. Terminal-cut evidence and the final
+> capability boundary are in `M3_FAILURE_ATLAS.md` and
+> `M3B_CHAMPION_REPORT.md`; stale row/hash/result values below are historical.
+
 > 日期：2026-08-12（UTC）  
 > 证据：当前源码、本地 frozen resources、已有真实 M0 micro trace；不是 benchmark 结果
 

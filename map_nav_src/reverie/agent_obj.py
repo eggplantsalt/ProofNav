@@ -34,6 +34,7 @@ class GMapObjectNavAgent(Seq2SeqAgent):
         self.scanvp_cands = {}
         self.runtime_trace = None
         self.proofnav_signal = None
+        self.proofnav_terminal_signal = None
 
     def set_runtime_trace(self, path=None):
         if self.runtime_trace is not None:
@@ -61,6 +62,7 @@ class GMapObjectNavAgent(Seq2SeqAgent):
             from proofnav.contracts import canonical_sha256
             from proofnav.perception.duet_signal import DuetSignalSink
             from proofnav.perception.entity_template import build_entity_proof_template
+            from proofnav.perception.terminal_signal import DuetTerminalSignalSink
         except ModuleNotFoundError as exc:
             if exc.name != 'proofnav':
                 raise
@@ -75,11 +77,37 @@ class GMapObjectNavAgent(Seq2SeqAgent):
             from proofnav.contracts import canonical_sha256
             from proofnav.perception.duet_signal import DuetSignalSink
             from proofnav.perception.entity_template import build_entity_proof_template
+            from proofnav.perception.terminal_signal import DuetTerminalSignalSink
         return (
             sanitize_duet_observation, derive_runtime_episode_id,
-            DuetSignalSink,
+            DuetSignalSink, DuetTerminalSignalSink,
             build_entity_proof_template, canonical_sha256,
         )
+
+    def _proofnav_model_identity(self):
+        return {
+            'model_digest': getattr(
+                self.args, 'proofnav_signal_model_digest', None),
+            'checkpoint_digest': getattr(
+                self.args, 'proofnav_signal_checkpoint_digest', None),
+            'feature_digest': getattr(
+                self.args, 'proofnav_signal_feature_digest', None),
+            'interface_digest': getattr(
+                self.args, 'proofnav_signal_interface_digest', None),
+            'config_digest': getattr(
+                self.args, 'proofnav_signal_config_digest', None),
+            'tokenizer_digest': getattr(
+                self.args, 'proofnav_signal_tokenizer_digest', None),
+        }
+
+    def _configure_proofnav_boundary(self):
+        (sanitizer, episode_id_builder, signal_sink, terminal_sink,
+         template_builder, canonical_hasher) = self._load_proofnav_signal_boundary()
+        self._proofnav_signal_sanitizer = sanitizer
+        self._proofnav_episode_id_builder = episode_id_builder
+        self._proofnav_signal_template_builder = template_builder
+        self._proofnav_canonical_sha256 = canonical_hasher
+        return signal_sink, terminal_sink
 
     def set_proofnav_signal(self, path=None):
         """Configure the separate M3 signal JSONL sink; ``None`` disables it."""
@@ -95,36 +123,39 @@ class GMapObjectNavAgent(Seq2SeqAgent):
                 os.path.abspath(path) == os.path.abspath(runtime_path)):
             raise ValueError('ProofNav signal and M0 runtime trace require separate files')
 
-        model_identity = {
-            'model_digest': getattr(
-                self.args, 'proofnav_signal_model_digest', None),
-            'checkpoint_digest': getattr(
-                self.args, 'proofnav_signal_checkpoint_digest', None),
-            'feature_digest': getattr(
-                self.args, 'proofnav_signal_feature_digest', None),
-            'interface_digest': getattr(
-                self.args, 'proofnav_signal_interface_digest', None),
-            'config_digest': getattr(
-                self.args, 'proofnav_signal_config_digest', None),
-            'tokenizer_digest': getattr(
-                self.args, 'proofnav_signal_tokenizer_digest', None),
-        }
-        (sanitizer, episode_id_builder, sink_class, template_builder,
-         canonical_hasher) = self._load_proofnav_signal_boundary()
-        self._proofnav_signal_sanitizer = sanitizer
-        self._proofnav_episode_id_builder = episode_id_builder
-        self._proofnav_signal_template_builder = template_builder
-        self._proofnav_canonical_sha256 = canonical_hasher
-        self.proofnav_signal = sink_class(path, model_identity)
+        sink_class, _ = self._configure_proofnav_boundary()
+        self.proofnav_signal = sink_class(path, self._proofnav_model_identity())
+
+    def set_proofnav_terminal_signal(self, path=None):
+        """Configure the explicit action-cut successor sink; default-off."""
+
+        if self.proofnav_terminal_signal is not None:
+            self.proofnav_terminal_signal.close()
+            self.proofnav_terminal_signal = None
+        if path is None:
+            return
+        forbidden = [
+            getattr(self.args, 'runtime_trace_file', None),
+            getattr(self.args, 'proofnav_signal_file', None),
+        ]
+        for other in forbidden:
+            if (other is not None and '{split}' not in other
+                    and os.path.abspath(path) == os.path.abspath(other)):
+                raise ValueError('ProofNav terminal signal requires a separate file')
+        _, sink_class = self._configure_proofnav_boundary()
+        self.proofnav_terminal_signal = sink_class(
+            path, self._proofnav_model_identity(),
+        )
 
     def _emit_proofnav_signals(
         self, obs, step, nav_outs, nav_inputs, pano_inputs, language_inputs,
-        active_mask, runtime_episode_ids,
+        active_mask, runtime_episode_ids, sink=None, decision_contexts=None,
     ):
         """Copy only agent-visible values available at the real model seam."""
 
-        if self.proofnav_signal is None:
+        if sink is None and self.proofnav_signal is None:
             return
+        sink = self.proofnav_signal if sink is None else sink
         if len(active_mask) != len(obs) or len(runtime_episode_ids) != len(obs):
             raise ValueError('ProofNav signal active mask must match batch size')
         for batch_index, ob in enumerate(obs):
@@ -150,36 +181,39 @@ class GMapObjectNavAgent(Seq2SeqAgent):
             instruction_length = len(ob['instr_encoding'])
             packed_locations = pano_inputs['loc_fts'][batch_index]
             angle_size = int(self.args.angle_feat_size)
-            self.proofnav_signal.emit(
-                observation=observation,
-                template_digest=self._proofnav_canonical_sha256(template),
-                object_logits=nav_outs['obj_logits'][batch_index][
+            emission = {
+                'observation': observation,
+                'template_digest': self._proofnav_canonical_sha256(template),
+                'object_logits': nav_outs['obj_logits'][batch_index][
                     object_start:object_start + object_length
                 ],
-                object_valid_mask=nav_inputs['vp_obj_masks'][batch_index][
+                'object_valid_mask': nav_inputs['vp_obj_masks'][batch_index][
                     object_start:object_start + object_length
                 ],
                 # Bind the actual candidate-first, padded-and-truncated model
                 # inputs at this seam.  Recombine view image+angle only to
                 # retain the frozen M1 panorama shape; view box constants are
                 # an interface/config property rather than source content.
-                panorama_features=torch.cat((
+                'panorama_features': torch.cat((
                     pano_inputs['view_img_fts'][batch_index][:view_length],
                     packed_locations[:view_length, :angle_size],
                 ), 1),
-                object_features=pano_inputs['obj_img_fts'][batch_index][
+                'object_features': pano_inputs['obj_img_fts'][batch_index][
                     :object_length
                 ],
-                object_angle_features=packed_locations[
+                'object_angle_features': packed_locations[
                     view_length:view_length + object_length, :angle_size
                 ],
-                object_box_features=packed_locations[
+                'object_box_features': packed_locations[
                     view_length:view_length + object_length, angle_size:
                 ],
-                instruction_encoding=language_inputs['txt_ids'][batch_index][
+                'instruction_encoding': language_inputs['txt_ids'][batch_index][
                     :instruction_length
                 ],
-            )
+            }
+            if decision_contexts is not None:
+                emission['decision_context'] = decision_contexts[batch_index]
+            sink.emit(**emission)
 
     def _language_variable(self, obs):
         seq_lengths = [len(ob['instr_encoding']) for ob in obs]
@@ -463,7 +497,8 @@ class GMapObjectNavAgent(Seq2SeqAgent):
         proofnav_episode_ids = [
             self._proofnav_episode_id_builder(
                 ob['scan'], ob['viewpoint'], ob['instruction'],
-            ) if self.proofnav_signal is not None else None
+            ) if (self.proofnav_signal is not None
+                  or self.proofnav_terminal_signal is not None) else None
             for ob in obs
         ]
 
@@ -641,6 +676,38 @@ class GMapObjectNavAgent(Seq2SeqAgent):
                             i, t, obs[i]['viewpoint'], cpu_a_t[-1],
                             expanded_path,
                         )
+
+            if self.proofnav_terminal_signal is not None:
+                if self.feedback != 'argmax':
+                    raise ValueError(
+                        'ProofNav terminal signal is evaluation-only; '
+                        'teacher/sample stop uses training supervision'
+                    )
+                terminal_contexts = []
+                for i in range(batch_size):
+                    duet_stop = bool(a_t_stop[i])
+                    no_frontier = bool(nav_inputs['no_vp_left'][i])
+                    max_step = bool(t == self.args.max_action_len - 1)
+                    terminal_contexts.append({
+                        'active_before_decision': not bool(ended[i]),
+                        'selected_navigation_index': int(a_t[i].item()),
+                        'duet_stop': duet_stop,
+                        'no_frontier': no_frontier,
+                        'max_step': max_step,
+                        'environment_action_is_none': cpu_a_t[i] is None,
+                        'evidence_eligibility': (
+                            'TERMINAL_SUPPORT' if duet_stop else
+                            ('FORCED_END_ABSTAIN' if no_frontier or max_step
+                             else 'SEARCH_PROPOSAL')
+                        ),
+                    })
+                self._emit_proofnav_signals(
+                    obs, t, nav_outs, nav_inputs, pano_inputs, language_inputs,
+                    active_mask=np.logical_not(ended),
+                    runtime_episode_ids=proofnav_episode_ids,
+                    sink=self.proofnav_terminal_signal,
+                    decision_contexts=terminal_contexts,
+                )
 
             # Make action and get the new state
             self.make_equiv_action(cpu_a_t, gmaps, obs, traj)

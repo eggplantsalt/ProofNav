@@ -15,6 +15,15 @@ SCHEMA_VERSIONS = {
     "pair": "proofnav.paired.v1",
     "reference_check": "proofnav.reference-check.v1",
     "evaluation": "proofnav.evaluation.v1",
+    # M2 extends the frozen M1 wire contracts; it does not mutate their v1
+    # field sets.  M2 artifacts use separate, explicit versions.
+    "proof_state": "proofnav.proof-state.v1",
+    "ledger": "proofnav.evidence-ledger.v1",
+    "m2_certificate": "proofnav.certificate.v2",
+    "online_verification": "proofnav.online-verification.v1",
+    "terminal_decision": "proofnav.terminal-decision.v1",
+    "controlled_truth": "proofnav.controlled-truth.v1",
+    "offline_verification": "proofnav.offline-verification.v1",
 }
 
 SEMANTIC_DECISIONS = frozenset(("FOUND", "NOT_FOUND"))

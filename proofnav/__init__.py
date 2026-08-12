@@ -1,8 +1,9 @@
-"""M1 contracts and offline tooling for ProofNav.
+"""Versioned contracts plus the isolated ProofNav M2 proof runtime.
 
-This package deliberately contains no DUET model, policy, runtime certificate
-constructor, or controller integration.  It is the CPU-only interface/data
-contract slice used before M2.
+The package deliberately contains no DUET model/policy integration, real
+predicate perception, re-ranker, training, or benchmark runner.  Production
+and controlled replay entry points remain separated in ``runtime`` and
+``offline`` respectively.
 """
 
 from .contracts import SCHEMA_VERSIONS, ContractViolation, semantic_verdict

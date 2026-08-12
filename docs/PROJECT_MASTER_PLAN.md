@@ -6,9 +6,9 @@
 >
 > 代码基线：VLN-DUET `main@93e8b233164bc079a6db48b8a0a78d123ec8de41`
 >
-> 当前状态：**M0 已实测完成，M1-A/M1-B 接口与数据合同 vertical slice 已完成**；尚未实现 M2 runtime certificate/verifier、ProofNav controller，未生成正式 paired 数据或训练模型。
+> 当前状态：**M0 已实测完成，M1-A/M1-B 已完成，M2-A/M2-B 已在 controlled evidence 下完成 CPU 逻辑闭环**；尚未实现 M3 真实 predicate perception/calibration、M4 DUET 闭环/re-ranker、正式 paired 数据或训练模型。
 
-相关文档：[新手代码库说明](CODEBASE_BEGINNER_GUIDE.md)；[代码约束下的设计审查](CODE_GROUNDED_DESIGN_REVIEW.md)；[M0 复现报告](reproduction/M0_REPRODUCTION_REPORT.md)；[M1 合同](M1_CONTRACTS.md)；[M1 代码驱动微调](M1_CODE_DRIVEN_CHANGELOG.md)。
+相关文档：[新手代码库说明](CODEBASE_BEGINNER_GUIDE.md)；[代码约束下的设计审查](CODE_GROUNDED_DESIGN_REVIEW.md)；[M0 复现报告](reproduction/M0_REPRODUCTION_REPORT.md)；[M1 合同](M1_CONTRACTS.md)；[M1 代码驱动微调](M1_CODE_DRIVEN_CHANGELOG.md)；[M2 架构](M2_ARCHITECTURE.md)；[M2 schema](M2_CERTIFICATE_VERIFIER_SCHEMA.md)；[M2 边界](M2_DEPENDENCY_BOUNDARY.md)；[M2 falsification](M2_FALSIFICATION_REPORT.md)。
 
 ## 0. 固定范围与证据标记
 
@@ -391,7 +391,7 @@ DUET dual-scale 表征保留为 re-ranker 输入，但不另立“dual-scale pro
 
 ## 11. 分阶段实施路线
 
-M0 已完成并冻结。本轮用户明确授权 M1 接口/数据合同、微型 synthetic fixture、validator、reference checker 与独立离线 evaluator；M2+ 方法实现、正式数据生成、训练和正式实验仍需另行授权。
+M0、M1 已完成并冻结。用户本轮明确授权 M2 controlled/oracle evidence、certificate、dual verifier 与 standalone terminal gate；M3+、正式数据生成、训练和正式实验仍需另行授权。
 
 ### M0：复现准备与原 DUET REVERIE evaluation
 
@@ -427,11 +427,18 @@ M0 已完成并冻结。本轮用户明确授权 M1 接口/数据合同、微型
 
 ### M2：Oracle evidence、证书与 verifier correctness
 
+**状态：M2-A / M2-B 已完成 controlled-evidence CPU vertical slice（2026-08-12）。**
+
 **目的：** 先隔离验证 true path、refutation cover、frontier/unresolved 和闭环 verifier 逻辑。
 
-**候选新文件：** `proofnav/evidence.py`、`proofnav/certificate.py`、`proofnav/verifier/online.py`、`proofnav/verifier/offline.py`。
+**实际文件：** `proofnav/runtime/{state,certificate,verifier,terminal}.py` 与
+`proofnav/offline/{oracle_evidence,oracle_verifier}.py`。runtime 不反向导入 offline；生产
+evidence admission 在没有 M3 code-owned adapter 前保持 zero-admission。
 
-**验收：** 正/负/缺失/冲突/越界小例；online verifier 不读 GT；offline auditor 可独立发现错误；拒绝后返回精确 remaining obligations。Oracle 只用于逻辑上界，不报告成在线结果。
+**验收结果：** 正/负/缺失/冲突/越界、四类 false premise、scope/frontier/stale、budget/risk/
+cost、GT firewall、terminal gate、M0 trace replay 和 16-state exhaustive micro-check 已由 CPU
+测试覆盖；offline auditor 独立发现了错误 predicate 导致的 `FALSE_ACCEPT` 反例。M2 因而只
+建立“validated-and-correct evidence 条件下”的逻辑闭环，不报告为在线事实可靠性。
 
 ### M3：Perception adapter、predicate evidence 与风险校准
 
@@ -443,7 +450,8 @@ M0 已完成并冻结。本轮用户明确授权 M1 接口/数据合同、微型
 
 ### M4：Proof-obligation re-ranker 与闭环执行
 
-**目的：** 冻结 DUET proposal，接入轻量 re-ranker、成本账本和 verifier-gated terminal。
+**目的：** 冻结 DUET proposal，接入轻量 re-ranker、成本账本，并把 M2 standalone
+verifier-gated terminal 接到正式闭环。
 
 **候选新文件：** `proofnav/planner/reranker.py`、`proofnav/controller.py`；对 `GMapObjectNavAgent.rollout` 只做最小可开关接线。
 
@@ -482,8 +490,8 @@ M0 已完成并冻结。本轮用户明确授权 M1 接口/数据合同、微型
 
 ### 权限
 
-M0 与 M1 的已完成资产允许维护和小型 CPU 回归。不得自行安装关键依赖、下载大型资源、使用 GPU 运行正式实验、训练、生成正式 paired 数据或进入 M2+ runtime certificate/verifier/controller。Agent 发现风险时可以收缩 claim、改接口或提出主线内小修复，但无权自行更换问题、benchmark、DUET 基座或取消核心语义。
+M0、M1 与 M2 的已完成资产允许维护和小型 CPU 回归。不得自行安装关键依赖、下载大型资源、使用 GPU 运行正式实验、训练、生成正式 paired 数据或进入 M3+ perception/calibration、M4 re-ranker/正式 DUET 接线。Agent 发现风险时可以收缩 claim、改接口或提出主线内小修复，但无权自行更换问题、benchmark、DUET 基座或取消核心语义。
 
 ## 13. 当前阶段出口
 
-代码事实、信息边界、第一阶段离散对象、三项增强、接入接口和里程碑已经冻结。**M0 与 M1 均已达到各自验收；当前阶段边界停在 M2 之前。** 下一步若进入 M2，只能实现 oracle/synthetic evidence 下隔离的 certificate/verifier correctness，不得跳到真实感知、re-ranking、训练或正式 benchmark，且需用户明确授权。
+代码事实、信息边界、第一阶段离散对象、三项增强、接入接口和里程碑已经冻结。**M0、M1 与 controlled-evidence M2 均已达到各自限定验收；当前阶段边界停在 M3 之前。** 下一步若进入 M3，只能在用户明确授权后实现真实 predicate adapter 与 calibration falsification；不得把 M2 oracle replay 当成感知能力，也不得跳到 re-ranking、训练或正式 benchmark。

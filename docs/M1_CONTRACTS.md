@@ -70,7 +70,8 @@ evidence 和 observations；truth 在 checker 返回后才用于离线比较。�
 
 `[实测]` runtime trace 只接受 M0 的六类事件：`observation/model_scores/action/
 termination/execution/prediction`，拒绝 evaluator/metrics/GT 字段与未知顶层 payload。
-真实 M0 trace 的 66 个事件通过该回归。
+mandatory regression 使用从真实 M0 trace 投影并脱敏的固定 6-event slice；完整 66-event 本机
+artifact 只在显式 opt-in integration test 中检查，不再影响 clean checkout。
 
 ## 4. Agent observation 与动作合同
 
@@ -261,14 +262,16 @@ python -m unittest discover -s tests/m1 -v
 覆盖：版本/allowlist、三状态、FOUND/NOT_FOUND reference rule、termination/verdict 分离、
 GT 注入、proposal/travel-only、provenance、branch mapping、四类 pair、multi-change、scope、
 missing provenance、dedup、split leakage、legacy DUET output、offline truth boundary、微型 M0
-trace，以及本地真实 M0 trace（artifact 存在时）。
+trace，以及固定、脱敏、可追踪的真实 M0 trace slice。未跟踪的完整本机 trace 已移到
+`tests/integration/`，需显式环境变量和路径启用，不属于 mandatory suite。
 
 测试是 CPU 合同验证，不加载模型或 HDF5，不构成正式实验。
 
 ## 10. 明确留到 M2+
 
-- `[M2]` runtime certificate constructor、完整 online verifier、offline certificate truth
-  auditor、拒绝反馈和 controller；
+- `[M2，后续已完成]` runtime certificate constructor、完整 online verifier、offline certificate
+  truth auditor、拒绝反馈和 standalone terminal controller；详见 `M2_ARCHITECTURE.md`。M1
+  reference checker 本身仍保持不变，不冒充 M2 verifier；
 - `[M3]` 自动 predicate evidence、真实 attribute/relation/room adapter、校准 artifact、
   dependency-aware risk composition；
 - `[M4]` proof-obligation re-ranking、GraphMap route-cost 接线和 verifier-gated rollout；

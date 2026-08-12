@@ -6,7 +6,7 @@
 >
 > 代码基线：VLN-DUET `main@93e8b233164bc079a6db48b8a0a78d123ec8de41`
 >
-> 当前状态：**M0 已实测完成，M1-A/M1-B 已完成，M2-A/M2-B 已在 controlled evidence 下完成 CPU 逻辑闭环**；尚未实现 M3 真实 predicate perception/calibration、M4 DUET 闭环/re-ranker、正式 paired 数据或训练模型。
+> 当前状态：**M0 已实测完成，M1-A/M1-B 已完成；旧 bulk-snapshot M2 complete 声明永久撤回，M2.1 successor 已通过 semantic/adversarial gate，M2-A/M2-B 按条件化 claim 恢复完成**；项目停在 M2→M3 边界，尚未实现 M3 真实 predicate/identity perception 与 calibration、M4 DUET 闭环/re-ranker、正式 paired 数据或训练模型。
 
 相关文档：[新手代码库说明](CODEBASE_BEGINNER_GUIDE.md)；[代码约束下的设计审查](CODE_GROUNDED_DESIGN_REVIEW.md)；[M0 复现报告](reproduction/M0_REPRODUCTION_REPORT.md)；[M1 合同](M1_CONTRACTS.md)；[M1 代码驱动微调](M1_CODE_DRIVEN_CHANGELOG.md)；[M2 架构](M2_ARCHITECTURE.md)；[M2 schema](M2_CERTIFICATE_VERIFIER_SCHEMA.md)；[M2 边界](M2_DEPENDENCY_BOUNDARY.md)；[M2 falsification](M2_FALSIFICATION_REPORT.md)。
 
@@ -143,9 +143,9 @@ REVERIE 代码目前没有在线 room label；因此第一阶段默认 scope 用
 
 ### 3.2 Discrete Evidence Unit（DEU）
 
-第一阶段把连续 `proof cell` 收缩为两类可审计单元：
+M2.1 把连续 `proof cell` 收缩为两类可审计单元：
 
-- viewpoint-view unit：`(scan_id, viewpoint_id, view_bin)`，其中 `view_bin∈[0,35]`；
+- viewpoint panorama/coverage unit：每个 admitted viewpoint 的一次 audited 36-view panorama；
 - object-slot unit：`(scan_id, viewpoint_id, obj_id/slot_id)`。
 
 只有 `ObservationAdapter` 在 agent 实际到达该 viewpoint 后发出的事件，才把该 viewpoint 的 36-view 和 object slots 标记为 `observed`。从当前点看到某个 candidate，只能创建目标 viewpoint 的 **proposal/frontier witness**；candidate feature 来自当前位置朝向该邻居的 view bin，不能把目标 viewpoint 标记为已观察。
@@ -154,29 +154,30 @@ REVERIE 代码目前没有在线 room label；因此第一阶段默认 scope 用
 
 ### 3.3 Predicate evidence ledger
 
-每项谓词状态至少记录：
+M2.1 successor 不再使用 caller-owned candidate record，而由 dynamic hypothesis、typed binding 与
+obligation resolution 组成：
 
 ```text
-predicate_record = {
-  predicate_id,
-  candidate_entity_id,
-  supporting_event_ids,
-  contradicting_event_ids,
-  status: supported | refuted | unresolved,
-  score_kind,
-  calibration_ref,
-  risk_allocation,
-  dependency_group
+obligation = {
+  hypothesis_id, obligation_id, predicate_id, predicate_kind,
+  binding_requirement,
+  status: OPEN | SATISFIED | REFUTED | CONFLICTED,
+  support_evidence_ids, refutation_evidence_ids
 }
 ```
 
-现有 DUET 可直接提供候选实体和任务 logits，但不能直接提供结构化 attribute/relation/room truth 或校准 sensor likelihood。M2 可以先用 oracle evidence 测试证书逻辑；M3 必须通过独立 `PerceptionAdapter` 明确新增谓词分数及其校准边界，不能把 evaluator truth 接入在线 ledger。
+Visible slots、location residual 与 relation anchor residual 均从 admitted event trace 自动派生；typed
+identity witness 才能跨 viewpoint 合并 slots。现有 DUET 可直接提供候选实体和任务 logits，但不能
+直接提供结构化 attribute/relation/room truth、identity truth 或校准 sensor likelihood。M2 只用
+controlled evidence 验证证书逻辑；M3 必须通过独立 adapter 明确新增事实分数及校准边界，不能把
+evaluator truth 接入 online ledger。
 
 ### 3.4 True path、refutation cover 与 unresolved witness
 
 - **true path**：一个实体绑定及其所有必要谓词的 supporting event 集；FOUND 要求没有未决必要谓词，并满足风险约束。
 - **refutation cover（保留 false-cut 语义）**：对 scope 内每个仍可能实体/位置假设，至少给出一个合法反驳或证明该假设仍由 unresolved witness 保留。NOT-FOUND 只有在覆盖完整且风险约束成立时才可接受。
-- **graph frontier witness**：`GraphMap.node_positions` 中已发现但未访问的节点。
+- **graph frontier witness**：raw admitted observation candidates 的 append-only endpoint union 减去
+  observed endpoints；GraphMap 只作 execution consistency cross-check，不是证明 authority。
 - **evidence unresolved witness**：已访问单元中仍缺少可靠谓词证据的候选，或 scope 中尚未由合法 observation 结算的单元。
 
 `no_vp_left` 只表示当前增量 GraphMap 没有已发现未访问节点；它不是语义证书。若 scope/局部邻接完备性允许推出离散连通分量已遍历，仍需逐项结算感知未决义务。
@@ -391,7 +392,8 @@ DUET dual-scale 表征保留为 re-ranker 输入，但不另立“dual-scale pro
 
 ## 11. 分阶段实施路线
 
-M0、M1 已完成并冻结。用户本轮明确授权 M2 controlled/oracle evidence、certificate、dual verifier 与 standalone terminal gate；M3+、正式数据生成、训练和正式实验仍需另行授权。
+M0、M1 与 M2.1 已完成并冻结。M2.1 的授权范围仅包含 semantic repair、controlled sequential replay、
+adversarial falsification 与文档冻结；M0 重跑、M3+、正式数据生成、训练和正式实验仍未授权。
 
 ### M0：复现准备与原 DUET REVERIE evaluation
 
@@ -427,18 +429,25 @@ M0、M1 已完成并冻结。用户本轮明确授权 M2 controlled/oracle evide
 
 ### M2：Oracle evidence、证书与 verifier correctness
 
-**状态：M2-A / M2-B 已完成 controlled-evidence CPU vertical slice（2026-08-12）。**
+**状态：旧 bulk-snapshot complete 声明永久撤回；M2.1 successor 已按限定 claim 完成（2026-08-12）。**
 
 **目的：** 先隔离验证 true path、refutation cover、frontier/unresolved 和闭环 verifier 逻辑。
 
-**实际文件：** `proofnav/runtime/{state,certificate,verifier,terminal}.py` 与
-`proofnav/offline/{oracle_evidence,oracle_verifier}.py`。runtime 不反向导入 offline；生产
+**M2.1 successor 文件：** `proofnav/runtime/{semantics,state,certificate,verifier,terminal}.py` 与
+`proofnav/offline/{oracle_evidence,structural_audit,oracle_verifier}.py`。runtime 不反向导入 offline；生产
 evidence admission 在没有 M3 code-owned adapter 前保持 zero-admission。
 
-**验收结果：** 正/负/缺失/冲突/越界、四类 false premise、scope/frontier/stale、budget/risk/
-cost、GT firewall、terminal gate、M0 trace replay 和 16-state exhaustive micro-check 已由 CPU
-测试覆盖；offline auditor 独立发现了错误 predicate 导致的 `FALSE_ACCEPT` 反例。M2 因而只
-建立“validated-and-correct evidence 条件下”的逻辑闭环，不报告为在线事实可靠性。
+**旧实现反例：** 调用方可伪造 closure、跨对象拼接必要谓词、让 future evidence 进入较早 cut，
+且 offline 会把损坏证书的正确拒绝误报为 `FALSE_REJECT`。M2.1 因而改为 causal transition log、
+event-derived topology closure、dynamic location/slot/residual universe、typed binding、派生 accounting
+与独立 structural offline audit。后续 red-team 又补入 typed identity witness、relation
+`anchor_residual`、exact observation/instruction/provenance、CONTINUE prefix、预算边界和不信任 online
+reason-code 的 offline taxonomy。实际 gate 见 [M2 falsification report](M2_FALSIFICATION_REPORT.md)。
+
+**完成含义：** 在 exact audited observation interface、完整 validated template、合法 admitted identity
+witness 与事实正确 typed evidence 条件下，raw event log 足以重算 closure、causality、binding、coverage、
+accounting 与 terminal legality。它不证明 perception/identity/coverage output 的世界事实、risk calibration、
+room label 或 compiler 完整性，也不包含正式 DUET 成本/指标。
 
 ### M3：Perception adapter、predicate evidence 与风险校准
 
@@ -490,8 +499,8 @@ verifier-gated terminal 接到正式闭环。
 
 ### 权限
 
-M0、M1 与 M2 的已完成资产允许维护和小型 CPU 回归。不得自行安装关键依赖、下载大型资源、使用 GPU 运行正式实验、训练、生成正式 paired 数据或进入 M3+ perception/calibration、M4 re-ranker/正式 DUET 接线。Agent 发现风险时可以收缩 claim、改接口或提出主线内小修复，但无权自行更换问题、benchmark、DUET 基座或取消核心语义。
+M0、M1 与 M2.1 的现有资产允许维护和小型 CPU falsification。不得自行安装关键依赖、下载大型资源、使用 GPU 运行正式实验、训练、生成正式 paired 数据或进入 M3+ perception/calibration、M4 re-ranker/正式 DUET 接线。Agent 发现风险时可以收缩 claim、改接口或提出主线内小修复，但无权自行更换问题、benchmark、DUET 基座或取消核心语义。
 
 ## 13. 当前阶段出口
 
-代码事实、信息边界、第一阶段离散对象、三项增强、接入接口和里程碑已经冻结。**M0、M1 与 controlled-evidence M2 均已达到各自限定验收；当前阶段边界停在 M3 之前。** 下一步若进入 M3，只能在用户明确授权后实现真实 predicate adapter 与 calibration falsification；不得把 M2 oracle replay 当成感知能力，也不得跳到 re-ranking、训练或正式 benchmark。
+代码事实、信息边界、第一阶段离散对象、三项增强、接入接口和里程碑保持冻结。**M0、M1 与条件化的 M2.1 successor 已达到各自限定验收；旧 M2 实现与无条件 factual-soundness claim 未恢复。** 当前阶段停在 M2→M3 边界。下一步若进入 M3，只能在用户明确授权后实现真实 predicate/identity adapter 与 calibration falsification；不得把 M2 controlled replay 当成感知能力，也不得跳到 re-ranking、训练或正式 benchmark。

@@ -14,6 +14,6 @@ Long-lived rules:
 - After an implementation, run the smallest relevant non-destructive validation.
 - Distinguish source-confirmed facts, actually run validation, unverified procedures, engineering inference, and research design.
 - The fixed research line is false-premise VLN with ProofNav on the VLN-DUET base; the first-stage benchmarks are REVERIE, VLN-NF when its official artifacts are available, and a strictly paired REVERIE extension. An agent must not change the direction, benchmark, or base repository.
-- The current stage permits code-grounded design calibration and M0 preparation only. Without the user's next explicit request, do not implement ProofNav, train models, generate data, or run a formal benchmark.
+- M2.1 Semantic Repair and Adversarial Falsification is frozen complete under the conditional claims in `docs/M2_ARCHITECTURE.md`. The project remains at the M2→M3 boundary: maintenance and CPU-only regression/audit work are allowed, but M0 reruns, M3 perception/calibration or identity association, M4 DUET rollout/re-ranking integration, M5 benchmark work, model training, formal paired-data generation, GPU work, and formal experiments require explicit user authorization.
 - When related work, equivalence, interface limits, or implementation risks are found, report them and prefer the smallest traceable adjustment inside the fixed ProofNav line.
 - Report before any large data/model download, training or formal experiment, paid external API use, GPU-intensive work, destructive action, or push to a remote.

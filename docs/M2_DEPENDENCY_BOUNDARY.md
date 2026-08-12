@@ -1,46 +1,94 @@
-# ProofNav M2 Online / Offline Dependency Boundary
+# ProofNav M2.1 Online / Offline Dependency Boundary
 
-## 1. 允许依赖方向
+## 1. 依赖方向
 
 ```text
-proofnav.contracts + proofnav.validation
-             ^
-             |
-proofnav.runtime/{state,certificate,verifier,terminal}
-             ^
-             |
-proofnav.offline/{oracle_evidence,oracle_verifier}
+                 proofnav.contracts + proofnav.validation
+                         ^                    ^
+                         |                    |
+proofnav.runtime/{semantics,state,...}   proofnav.offline/{oracle_evidence,
+                                          structural_audit,oracle_verifier}
 ```
 
-`proofnav/runtime/` 不导入 `proofnav.offline`、oracle provider 或 evaluator。静态 AST 测试逐个
-检查 runtime Python 文件；runtime package 公共导出也不包含 controlled/replay 类。
+Runtime 不导入 `proofnav.offline`、oracle provider、controlled truth 或 evaluator。生产公共入口仅
+导出 `ProofState/CertificateBuilder/OnlineVerifier/TerminalController`。
 
-`oracle_verifier.py` 不导入或调用 online verifier。它复制 runtime output 与 hidden truth 后
-独立计算 audit outcome，不共享会写回 runtime 的可变状态。
+Offline structural auditor 是刻意独立的第二实现：它不得 import/call runtime semantics 或 online
+verifier，只共享 frozen contracts 的 schema constants、canonical JSON/SHA-256 和 M1 validators。
+这避免 online 的同一个 bug 同时“验证”自己。共同的 adversarial corpus 用来检测两份实现 drift。
 
-## 2. 两个明确入口
+## 2. 两个 code-owned admission profile
 
-- production：`ProofState`、`EvidenceLedger`、`OnlineVerifier`、`TerminalController`；
-- offline/replay：`ControlledProofState`、`OracleEvidenceProvider`、
-  `ReplayOnlineVerifier`、`ReplayTerminalController`、`OracleOfflineVerifier`。
+Production profile 精确固定：
 
-两者共享 M1 evidence v1 和相同 proof/certificate/verifier 语义核心，但 admission policy 由类的
-代码边界决定，不由配置字符串决定。M2 production admission 是 zero-admission；即使 oracle
-记录把 adapter、producer 和 source field 全部改成看似真实的别名，也会被拒绝。
+```text
+producer      = proofnav.adapters.sanitize_duet_observation
+source schema = duet.reverie._get_obs@frozen-m0
+interface audit SHA-256
+  2d2cf87d402b7d6e7283bf86c5da56cacd49312359d367c8c5d6234dbe9b47b8
+evidence      = production_zero
+identity link = production_zero
+```
 
-## 3. Truth 流向
+Controlled profile 精确固定为 `proofnav.offline.controlled_replay`、
+`proofnav.controlled-observation.v2` 与 synthetic micro audit。Profile 是代码注册值，不接受调用方
+prefix、allowlist alias 或任意 audit ref。Production verifier 对 controlled profile 永远拒绝。
 
-Controlled truth 只在 `proofnav/offline/oracle_evidence.py` 被解析。provider 输出只包含 M1
-允许的 observation-tethered evidence 字段，并显式标记
-`proofnav.controlled-oracle.replay.v1`。隐藏 semantic truth、supported/refuted universe 和
-truth artifact digest 不进入 proof snapshot、certificate、online feedback 或 runtime trace。
+Exact profile 只声明进程内 contract 信任边界，不是网络攻击者的数字签名。本阶段没有远程/多进程
+attestation；若部署威胁模型需要跨进程真实性，后续必须增加签名 admission envelope，而不能把
+`producer` 字符串宣传成密码学证明。
 
-Offline verifier 的冲突信息只进入测试/审计报告。它不会修改 certificate、proof state、
-terminal decision 或下一动作。这个单向边界也意味着 online acceptance 不能被解释为事实正确；
-事实正确性必须由 offline audit 与未来 M3 calibration 分别评估。
+## 3. Decision audit bundle
 
-## 4. M0/M1 与 DUET 保持
+State 向 verifier/offline 交付 frozen bundle：
 
-固定的六事件 M0 trace slice 不含 GT/evaluator/offline 字段，且继续验证 fused action ID 映射、
-travel-only 与 endpoint observation。完整本机 M0 trace 仅通过显式环境变量启用 integration
-test。M2 未修改 `map_nav_src/`、原 rollout、原 STOP 逻辑或 legacy prediction evaluator。
+```text
+schema_version
+scope, template, admission_profile, risk_claims
+raw proof transitions
+claimed derived state
+bundle_digest
+```
+
+Runtime verifier 和 offline auditor都必须从 raw transitions 重算 claimed state。Caller 修改 derived
+frontier、closure、budget、cost 或 universe 不会改变 raw cause，只会造成 bundle mismatch；caller
+修改 raw observation/candidate 又会破坏 transition/bundle/certificate identity。证书只在一个 exact
+decision cut 有效。
+
+Exact observation interface 同时绑定 panorama `[36,D] float32`、view/candidate point index
+`[0,35]`、candidate `[D] float32`、唯一 object IDs 与 `[N,768]/[N,4]/[N,3] float32` object
+schemas，以及 template/observation instruction digest 一致。
+
+## 4. Truth 和 evidence 的单向流
+
+```text
+ControlledTruth (hidden fact)
+              |                 ControlledEvidenceScript (predicate output)
+              |                                  |
+              v                                  v
+      offline comparison              OracleEvidenceProvider
+                                                 |
+                                    bound evidence v2 + M1 evidence v1
+                                                 |
+                                    controlled replay state only
+```
+
+Truth 不再驱动 evidence emission。Script 可在测试中模拟 factual predicate error，而 truth 本身仍
+必须内部一致。Runtime bundle、certificate、online feedback 与下一动作均不含 semantic truth、GT
+path/object、supported/refuted truth set 或 evaluator aliases。Offline outcome 的
+`feedback_to_runtime` 永远为 null。
+
+Identity association 也遵守单向边界：M2.1 controlled identity witness 只在 replay profile 中开放，
+精确绑定两端 unit/source observation provenance，强制跨 viewpoint 与 component injectivity，并计入
+query/ledger cost；`SAME_ENTITY` 的事实正确性不由 unit ID 自证。Production identity admission
+保持 zero，真实 identity adapter 与 factual validation 属于后续感知阶段。
+
+## 5. M0/M1 与 DUET 边界
+
+- M1 observation/evidence/scope/obligation/certificate/result v1 字段集合保持冻结；M2.1 全部新增语义
+  使用显式 successor versions/wrappers。
+- M0 fixed six-event trace 与 legacy M1 contracts 继续做 CPU regression；本轮不重跑 M0。
+- `map_nav_src/`、原 rollout、STOP、prediction/evaluator 没有在 M2.1 接线或修改。
+- M2.1 controlled accounting 不冒充 global path expansion 成本；M4 必须用真实 ACTION/execution
+  events 升版后才能接正式 DUET rollout。
+- 没有下载、GPU、训练、正式 paired 数据或 benchmark。

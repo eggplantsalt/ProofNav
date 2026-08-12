@@ -1,89 +1,119 @@
-# ProofNav M2 CPU Falsification Report
+# ProofNav M2.1 Semantic Repair and Adversarial Falsification Report
 
 > 日期：2026-08-12（UTC）  
-> 性质：micro logic falsification；不是形式化证明、模型实验或 benchmark
+> 性质：CPU-only contract/logic falsification；不是形式化证明、模型实验或 benchmark
+> 边界：本轮没有显式运行 M0 integration，没有下载、GPU、训练、正式 paired 数据或 M3/M4 接线
 
-## 1. 已执行检查
+## 1. 旧实现的四个反例
 
-- M1 conformance：27/27 CPU tests；strict GT/unknown-field rejection、action mapping、legacy
-  output 和固定 M0 trace slice 均通过；
-- M2 unit/metamorphic：32 tests；
-- 四类 false premise 各自运行完整 refutation acceptance、缺 cover rejection/final
-  UNRESOLVED 和 M1 single-premise pair validator；
-- 两 hypothesis、每个 obligation 取 open/support/refute/conflict 的 16 种状态穷举；
-- production/oracle alias、runtime import graph、offline verifier reverse dependency 静态检查；
-- 固定 M0 trace 的 CPU replay/action mapping smoke；不加载 checkpoint 或模型。
+本轮先把用户指定反例写入 `tests/m21/test_old_counterexamples.py`，在旧 bulk-snapshot M2 上实际运行。
+结果是 4 tests / 4 failures，证明旧 `M2-A complete / M2-B complete` 不能成立：
 
-实际命令与结果：
+| 旧反例 | 修复前实际结果 | 共同根因 |
+|---|---|---|
+| `vp0` candidates 含未访问 `vp1`，caller 传 `frontier=[]/scope_closed=True` | NOT_FOUND certificate 被 online ACCEPT | caller-owned topology/closure |
+| 同一 hypothesis 两个 necessary SUPPORTS 分属 object A/B | FOUND certificate 被 online ACCEPT | opaque hypothesis ID 与 untyped binding |
+| 唯一 observation/evidence 为 step/event 99，budget/cost 只报 step 1 | FOUND certificate 被 online ACCEPT | bulk preload 与 caller-owned counters 无共同 cut |
+| 事实方向正确但 digest 损坏的 certificate 被 online REJECT | offline 错报 `FALSE_REJECT` | offline 只比 verdict 方向，不独立审结构 |
+
+修复后同一文件为 4/4 OK。反例没有通过删除 candidate、删除断言或改成无矛盾 fixture 消失：旧 bulk
+constructor authority 被删除，mixed certificate 在重新计算合法 digest 后仍因 typed path 不一致被拒绝，
+future event 在事务提交前失败，digest damage 分类为 `CORRECT_REJECT`。
+
+## 2. Failure-to-design loop
+
+| 候选 | 优点 | Cheapest killer / 淘汰原因 |
+|---|---|---|
+| A. 保留静态 hypothesis IDs，只从 candidates 派生 frontier，并强制 evidence 同 unit | 改动小 | caller 仍可漏 hypothesis；跨 viewpoint 同实体和 relation anchor 无法表达 |
+| B. 每个 visible object proposal 一个 flat hypothesis | GT-free、贴近 DUET slots | 零 proposal/proposal miss 令 NOT vacuous；无法结算未枚举 target/anchor |
+| C. 直接用 DUET GraphMap visited/unvisited 作 closure authority | 复用已有图 | certificate/offline 无 raw 输入可独立重算；travel-only 节点与 observation 语义混淆 |
+| D. causal event log + location/slot/residual universe + typed binding | closure、universe、binding、time/cost 可重算且不暴露完整图 | 采用；代价是 successor schema 与保守 coverage obligations |
+
+更强的 lazy CSP/UNSAT proof 可表达通用 existential join，但需要 solver、proof format 与更大基础设施，
+不是解决本轮四个反例的最小充分修改。最终选择 D，并在后续 red-team 中加入 relation
+`anchor_residual` 与 typed identity witness；否则 B 的 proposal-miss 漏洞会在 relation 上重新出现。
+
+## 3. 修复后的可机检定义
+
+- **Closure：** 对 cut 前 admitted observations，`visited=observation endpoints`，
+  `discovered={start}∪all candidate endpoints`，`frontier=discovered−visited`。只有 exact code-owned
+  interface profile 且 frontier 为空时生成 witness；witness 绑定完整 observation content、scope、cut、
+  visited/edge/frontier/universe/binding digests。GraphMap 与 `no_vp_left` 无证明 authority。
+- **Universe：** visible slots 派生 subject alternatives；每个 visited location 强制有
+  `location_residual`；relation 还为每个 visible subject×location 派生 `anchor_residual`。多 room、
+  relation+room 或 optional anchored template fail closed。M1 `hypothesis_ids` 不决定 M2 universe。
+- **Binding：** bound evidence 精确绑定 hypothesis/obligation/predicate、subject/anchor/location/spatial
+  substitution、query 与 source observation。Typed identity witness 才能跨 viewpoint 合并 units；禁止
+  direct/transitive same-view slot merge，link 后旧 evidence 不迁移。
+- **State：** append-only hash-chain transitions 为唯一 authority；observation、identity、query、evidence、
+  revoke 与 CONTINUE 均事务 fold。Decision cut、budget/cost、ledger 与 certificate freshness从 raw log
+  推导。CONTINUE exact 重验 terminal/report/feedback/prior state 与 execution signal。
+- **Offline：** 独立实现重算 bundle/certificate/terminal，再读 hidden truth。它不 import/call runtime
+  verifier，也不相信 online 自报的 policy reason code。
+
+## 4. Cheapest killers 与结果
+
+| Killer | 修复后结果 |
+|---|---|
+| forged closure / external frontier mutation | 无法构造 NOT；cached-state forge 被 bundle/state mismatch 拒绝 |
+| 完整 2/3-node closure | 内部产生绑定 exact observations/cut/digests 的合法 witness |
+| 同 event ID 改 candidate / 新 candidate | state digest 改变，旧 NOT certificate stale |
+| mixed subject、wrong anchor、wrong hypothesis refutation | 即使 certificate 重新 seal 也因 typed coverage 拒绝 |
+| 任意/same-view/transitive identity merge | typed witness provenance、跨-view 与 component injectivity 拒绝 |
+| relation 只有 visible subject、没有 anchor slot | `anchor_residual` 保持 unresolved；generic location coverage 不足以 NOT |
+| multi-room / relation+room / optional anchor | template admission fail closed |
+| future observation/evidence、broken transition parent | admission 或 verifier 重算拒绝 |
+| forged evidence scope/producer/dependency group | runtime admission 与 independent offline audit 一致拒绝 |
+| object ID 缺失/重复或 feature row/schema 不一致 | observation 事务拒绝，不能缩小 universe |
+| instruction/template、panorama/candidate schema mismatch | exact audited interface 拒绝 |
+| caller budget/cost/query snapshot 篡改 | verifier 与 fold-derived snapshots 不一致，拒绝 |
+| reject→CONTINUE→next observation→rebuild | 真实顺序 state 演化；final online ACCEPT 且 offline TRUE_ACCEPT |
+| tampered CONTINUE/online accepted flag/GT extra field | exact prefix structural audit 拒绝 |
+| digest/provenance/stale certificate rejection | `CORRECT_REJECT`，不再误报 `FALSE_REJECT` |
+| 合法真证书被 test-only verifier 拒绝 | `FALSE_REJECT`；伪造 policy reason 仍不能豁免 |
+| equivalent replay | audit bundle 与 certificate/full digest 完全相同 |
+| support/refute/conflict × closure × time cartesian checks | 不会同时接受 FOUND 与 NOT_FOUND |
+
+额外 smoke：12 次连续 valid CONTINUE 的 state mutation 用时约 0.85 s，独立 offline fold 约 0.06 s；
+此前 prefix 递归的指数增长已移除。该数字仅是本机 micro smoke，不是性能 claim。
+
+## 5. 实际验证命令
 
 ```bash
 python -m py_compile proofnav/*.py proofnav/runtime/*.py proofnav/offline/*.py \
-  tests/m1/*.py tests/m2/*.py tests/integration/*.py
+  tests/m1/*.py tests/m2/*.py tests/m21/*.py tests/integration/*.py
 # exit 0
 
 python -m unittest discover -s tests/m1 -p 'test_*.py' -v
 # Ran 27 tests ... OK
 
 python -m unittest discover -s tests/m2 -p 'test_*.py' -v
-# Ran 32 tests ... OK
+# Ran 52 tests ... OK
+
+python -m unittest discover -s tests/m21 -p 'test_*.py' -v
+# Ran 4 tests ... OK
 
 python -m unittest discover -s tests -p 'test_*.py' -v
-# Ran 60 tests ... OK (skipped=1; explicit local integration is default-off)
-
-PROOFNAV_RUN_LOCAL_M0_INTEGRATION=1 \
-PROOFNAV_M0_TRACE_PATH=.m0-results/traces/dynamic_runtime_trace.jsonl \
-python -m unittest tests.integration.test_local_m0_trace -v
-# Ran 1 test ... OK
+# Ran 84 tests ... OK (skipped=1; local M0 integration remains default-off)
 ```
 
-## 2. Cheapest-killer 结果
+本轮没有设置 `PROOFNAV_RUN_LOCAL_M0_INTEGRATION=1`，因此没有重跑 M0。默认 discover 只确认该
+integration 仍按约定 opt-in。
 
-| Killer | 预期 | 结果 |
-|---|---|---|
-| 删除 positive necessary support | FOUND 失效 | 通过：旧证书 stale，新构造 UNRESOLVED |
-| 增加未覆盖 hypothesis | NOT_FOUND 失效 | 通过：scope/digest 与 coverage 拒绝 |
-| open frontier | 阻止 NOT_FOUND | 通过 |
-| evidence 排列 | 证书/verifier 稳定 | 通过：semantic digest 与证书字节相同 |
-| 无关 optional evidence | 合法 verdict 不变 | 通过 |
-| conflict | 不任选 FOUND/NOT_FOUND | 通过 |
-| 16 种小状态 | 不同时接受正/负 | 通过；最多一个 verdict accepted |
-| DUET STOP/no-vp/max/budget | 不制造 NOT_FOUND | 通过：continue 或 forced UNRESOLVED |
-| oracle 改名成 perception | production 仍拒绝 | 通过：zero-admission |
+## 6. Verdict 与未验证项
 
-## 3. 负面证据与 failure-to-design loop
+旧 bulk-snapshot M2 与“online acceptance 无条件等于事实正确”永久撤回。M2.1 successor 在以下
+条件化 claim 下通过 gate，M2-A/M2-B 可恢复 complete：给定 exact audited observation interface、
+完整 validated proof template、合法 admitted identity witnesses 和 factual-correct typed evidence，
+closure、causality、binding、coverage、accounting 与 terminal legality可由事件重算并 fail closed。
 
-### 最小反例
+尚未验证、也未冒充完成：
 
-隐藏事实为 FOUND，但 controlled predicate output 错误地产生完整 refutation evidence。结构上完整的
-NOT_FOUND certificate 被 replay online verifier 接受；独立 offline verifier 返回
-`FALSE_ACCEPT`、`online_offline_conflict=true`、`certificate_accepted_for_audit=false` 和
-`audit_disposition=UNRESOLVED`。
+- predicate、coverage 与 SAME_ENTITY output 的世界事实正确性；
+- 自动 instruction compiler、online room/anchor 可获得性、risk calibration；
+- producer/profile 字符串之外的跨进程 cryptographic attestation；
+- 正式 DUET ACTION/path cost、rollout/re-ranking 接线；
+- 正式 paired REVERIE、训练、GPU、benchmark 指标或性能提升。
 
-### 失败定位
-
-这不是 coverage/verifier 实现错误，而是**假设/claim 层**反例：只读 agent-visible evidence 的
-online verifier 无法从形式结构推出 predicate 的世界事实正确性。
-
-### 修复候选
-
-1. online 读取 evaluator truth：逻辑上能拦截，但直接破坏研究的 truth firewall，淘汰；
-2. 仅增加 adapter 名称/配置 allowlist：alias micro-test 可绕过，淘汰；
-3. M2 将 soundness 明确限定为 validated-and-correct evidence 条件，生产 evidence zero-admission，
-   offline 独立审计所有 factual conflict：当前采用；
-4. 多 adapter 冗余、置信度/依赖组合与 calibration：可能降低而不能逻辑消除相关错误，保留为
-   M3 falsification 对象，不在 M2 提前实现。
-
-### 结论
-
-M2 的 certificate logic 与 terminal gate 在 controlled-correct evidence 假设下成立；**“online
-acceptance 等于事实正确”这一无条件 claim 被反例否定并明确退休。** 当前修复保住 M2 的逻辑
-职责和 firewall，但真实 factual soundness 仍阻塞在 M3 perception/calibration，而不是被单元
-测试宣称解决。
-
-## 4. 尚未验证
-
-- 没有真实 predicate model、置信度或风险 calibration；
-- 没有 DUET 正式闭环接线、re-ranking、训练或 GPU；
-- 没有正式 paired REVERIE 生成或 benchmark；
-- M1 risk claim 在 M2 是 controlled fixture 输入，测试只验证预算/一致性 gate，不证明数值有效；
-- offline conflict 不回写 runtime；审计降级不能补救一次历史 online action。
+前四项中的感知/identity/calibration 属于获授权后的 M3；真实 ACTION trace 与 DUET closed loop 属于
+M4。本轮无代码结构阻塞，但这些阶段边界仍是明确的研究阻塞，不能由 controlled tests 代替。
